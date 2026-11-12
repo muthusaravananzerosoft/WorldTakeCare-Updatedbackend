@@ -1,0 +1,18 @@
+node_modules/
+dist/
+coverage/
+*.log
+*.tsbuildinfo
+
+# Environment files: only the template is tracked
+.env
+.env.*
+!.env.example
+
+# Uploaded media must never be committed
+uploads/
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
