@@ -61,3 +61,5 @@ documentation/   analysis and architecture
 - The legacy PHP source contains live credentials. **Nothing was copied.** All of them must be rotated (decision D-20).
 - Never connect this project to the legacy production database.
 - `.env` is git-ignored; only `.env.example` is tracked.
+# WorldTakeCare-backend
+Backend source code
