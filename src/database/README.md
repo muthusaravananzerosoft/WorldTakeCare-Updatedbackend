@@ -5,12 +5,8 @@ credentials exist yet — by design, until the team approves a target database.
 
 ## What exists
 
-| Path | Purpose |
-|---|---|
-| `interfaces/database-client.interface.ts` | Contract for the one shared client/pool: `connect`, `disconnect`, `ping`, `transaction` |
-| `interfaces/repository.interface.ts` | Base `Repository<T, Id>` contract and pagination types |
-| `repositories/` | Will hold concrete repository implementations (one per module aggregate) |
-| `migrations/` | Will hold schema migrations for the chosen tool |
+Database access contracts and repository interfaces live in `src/repositories/`.
+No database connection or migration files are implemented yet.
 
 ## Legacy database (reference only — do not connect)
 
@@ -26,11 +22,11 @@ credentials exist yet — by design, until the team approves a target database.
 
 1. Install the approved driver/ORM in this project only.
 2. Add `DATABASE_URL` (and pool settings) to `src/config/env.config.ts` and `.env.example`.
-3. Implement `DatabaseClient` in `src/database/client.ts` (one instance, created at startup).
+3. Implement `DatabaseClient` in `src/repositories/database-client.interface.ts` (one instance, created at startup).
 4. Call `connect()` in `server.ts` before `listen`, and `disconnect()` in the shutdown handler.
-5. Report `ping()` in `modules/health/health.service.ts` (`checks.database`).
-6. Implement repositories in `repositories/` against the interfaces; services receive them by injection.
-7. Put migrations in `migrations/` (or where the chosen tool expects them). The first migration
+5. Report `ping()` in `src/services/health.service.ts` (`checks.database`).
+6. Implement repositories in `src/repositories/` against the interfaces; services receive them by injection.
+7. Put migrations in the chosen tool's location. The first migration
    should reproduce the **target** schema in `documentation/database-analysis.md` §7, not the legacy one.
 8. Use a separate test database; never point tests at production or the legacy DB.
 

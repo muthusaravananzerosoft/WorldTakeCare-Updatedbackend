@@ -9,7 +9,8 @@ https://<api-host>/api/v1           (production — host to be decided)
 
 - Version is part of the path. Breaking changes ship under `/api/v2`; `/api/v1` keeps working until clients migrate.
 - Constants: `src/common/constants/api.constants.ts` (`API_VERSION`, `API_PREFIX`).
-- Routers are registered only in `src/routes.ts`, at the `basePath` declared in `src/modules/module-registry.ts`.
+- Routers are registered only in `src/routes/index.ts`, at the `basePath` declared in
+  `src/common/constants/module-registry.ts`.
 
 ## 2. Response envelope
 
@@ -74,7 +75,7 @@ Codes: `src/common/constants/error-codes.constants.ts`.
 | Idempotency | likes/favourites/friend requests return 409 on duplicates (legacy "already") |
 | Correlation | `X-Request-Id` request/response header; included in every error log |
 | CORS | allow-list in `CORS_ORIGINS`; credentials enabled for refresh-token cookie |
-| Docs | OpenAPI 3.1 in `src/docs/openapi.ts`; each implemented endpoint must be documented there |
+| Docs | OpenAPI 3.1 in `src/routes/openapi.ts`; each implemented endpoint must be documented there |
 
 ## 5. Request validation
 
@@ -102,7 +103,7 @@ router.post(
 
 ## 7. Planned endpoint map (from legacy features)
 
-Detailed per module in `src/modules/<module>/README.md`. Summary:
+Detailed per feature in `documentation/module-plans/<feature>/README.md`. Summary:
 
 | Module | Base path | Main endpoints |
 |---|---|---|

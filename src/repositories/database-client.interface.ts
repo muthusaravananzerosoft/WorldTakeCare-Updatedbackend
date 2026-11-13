@@ -1,4 +1,4 @@
-import type { DependencyStatus } from '../../modules/health/health.types.js';
+import type { DependencyStatus } from '../entities/health.types.js';
 
 /**
  * Contract for the single shared database client (pool). The concrete

@@ -12,7 +12,7 @@ This repository contains **only the backend**. The Next.js frontend lives in a s
 | Legacy analysis (code + database) | ✅ complete — see `documentation/` |
 | Server skeleton (config, CORS, security headers, logging, validation, errors, 404, graceful shutdown) | ✅ |
 | `GET /api/v1/health` + Swagger/OpenAPI | ✅ |
-| Business modules (20) | 🧱 scaffolded: README with legacy rules + planned endpoints; registered in `src/modules/module-registry.ts` |
+| Business features (20) | 🧱 plans in `documentation/module-plans/`; registered in `src/common/constants/module-registry.ts` |
 | Database | ⏸ contracts only — waiting for decision D-2 (no driver, no connection) |
 | Auth, realtime, integrations | ⏸ boundaries documented; implementation is the next phase |
 
@@ -44,16 +44,20 @@ npm run dev
 
 ```
 src/
-  server.ts  app.ts  routes.ts
-  config/        env + app + CORS config (Zod-validated)
-  common/        constants, AppError, response helpers, types, utils
-  middleware/    request id, logger, validate, not-found, error
-  modules/       health (implemented) + 20 planned modules, module-registry.ts
-  database/      DatabaseClient / Repository contracts
-  integrations/  realtime/  ai/   boundaries (README)
-  docs/          OpenAPI document
-tests/           Vitest + Supertest
-documentation/   analysis and architecture
+  app.ts  server.ts
+  config/       environment, application and CORS configuration
+  routes/       route registration, health route and OpenAPI document
+  controllers/  HTTP controllers
+  services/     business logic (health implemented)
+  repositories/ database and repository contracts
+  validators/   request validation schemas
+  entities/     domain and response types
+  middleware/   request id, logging, validation, not-found and errors
+  database/     database decision and integration notes
+  common/       constants, errors, interfaces, responses, types and utilities
+  integrations/ realtime/ ai/   future integration boundaries
+tests/          Vitest + Supertest
+documentation/  legacy analysis, architecture and feature plans
 ```
 
 ## Security notes

@@ -3,12 +3,12 @@ import { join } from 'node:path';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
-import { MODULES } from '../src/modules/module-registry.js';
+import { MODULES } from '../src/common/constants/module-registry.js';
 
-const modulesDir = join(import.meta.dirname, '..', 'src', 'modules');
+const modulePlansDir = join(import.meta.dirname, '..', 'documentation', 'module-plans');
 const app = createApp();
 
-describe('module registry', () => {
+describe('feature registry', () => {
   it('has unique names and base paths', () => {
     const names = MODULES.map((m) => m.name);
     const paths = MODULES.map((m) => m.basePath);
@@ -17,11 +17,11 @@ describe('module registry', () => {
   });
 
   it.each(MODULES.map((m) => [m.name, m] as const))(
-    'module "%s" has a folder with a README',
+    'feature "%s" has a plan with a README',
     (name, module) => {
-      expect(existsSync(join(modulesDir, name))).toBe(true);
+      expect(existsSync(join(modulePlansDir, name))).toBe(true);
       if (module.status === 'planned') {
-        expect(existsSync(join(modulesDir, name, 'README.md'))).toBe(true);
+        expect(existsSync(join(modulePlansDir, name, 'README.md'))).toBe(true);
       }
     },
   );

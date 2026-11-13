@@ -8,9 +8,9 @@ The design is driven by the legacy analysis ([existing-project-analysis.md](./ex
 
 1. **Behaviour-compatible, not code-compatible** — legacy rules are re-implemented; no PHP is ported.
 2. **Client-agnostic REST** — JSON only, versioned (`/api/v1`), no HTML, no server sessions tied to a browser.
-3. **Layered modules** — routes → controller → service → repository; each layer has one job.
+3. **Layered structure** — routes → controllers → services → repositories; each layer has one job.
 4. **Secure by default** — validation on every input, identity only from verified tokens, no secrets in code.
-5. **Storage-agnostic until decided** — services depend on repository interfaces (`src/database/interfaces`).
+5. **Storage-agnostic until decided** — services depend on repository interfaces (`src/repositories`).
 6. **Explicit boundaries** for things that change independently: integrations, realtime, AI.
 
 ## 2. Directory layout
@@ -20,7 +20,15 @@ WorldTakeCare/
 ├── src/
 │   ├── server.ts                    # process entry: listen, graceful shutdown, process-level error hooks
 │   ├── app.ts                       # createApp(): middleware pipeline, docs, routes, 404, errors (no listen → testable)
-│   ├── routes.ts                    # central /api/v1 route registration
+│   ├── routes/
+│   │   ├── index.ts                 # central /api/v1 route registration
+│   │   ├── health.routes.ts
+│   │   └── openapi.ts               # OpenAPI 3.1 document served by Swagger UI
+│   ├── controllers/                 # HTTP controllers (health implemented)
+│   ├── services/                    # business logic (health implemented)
+│   ├── repositories/                # repository and database-client contracts; implementations later
+│   ├── validators/                  # Zod request schemas
+│   ├── entities/                    # domain and response types
 │   ├── config/
 │   │   ├── env.config.ts            # loads .env (Node built-in), validates with Zod, fails fast
 │   │   ├── app.config.ts            # derived, typed runtime config
@@ -39,25 +47,20 @@ WorldTakeCare/
 │   │   ├── validate.middleware.ts   # Zod validation of params/query/body
 │   │   ├── not-found.middleware.ts
 │   │   └── error.middleware.ts      # the only place errors become HTTP responses
-│   ├── modules/
-│   │   ├── module-registry.ts       # catalogue: module → base path, status, legacy files, legacy tables
-│   │   ├── health/                  # ✅ implemented
-│   │   └── auth, users, profiles, media, discovery, likes, favorites, friends, messages, chat,
-│   │       video-calls, presence, notifications, travel, posts, blog, content, contact,
-│   │       reference-data, admin/   # 🧱 README only (legacy rules, planned endpoints, bugs to avoid)
-│   ├── database/                    # client + repository contracts; repositories/ & migrations/ empty until D-2
+│   ├── database/README.md            # database decision and setup notes; no live connection
+│   ├── common/constants/             # API/status/error constants and feature registry
 │   ├── integrations/                # adapters for mail, social auth, video, captcha, geoip, storage
 │   ├── realtime/                    # WebSocket layer (chat, presence, calls, badge counts)
 │   ├── ai/                          # reserved boundary (no AI in legacy)
-│   └── docs/openapi.ts              # OpenAPI 3.1 document served by Swagger UI
 ├── tests/                           # Vitest + Supertest
-├── documentation/                   # this folder
+├── documentation/                   # analysis, architecture and feature plans
+│   └── module-plans/                # planned feature details (not source modules)
 ├── .env.example · package.json · tsconfig*.json · eslint.config.js · vitest.config.ts · .prettierrc.json
 └── README.md · AGENTS.md
 ```
 
-Why these modules: each maps to a confirmed legacy feature (see the registry and
-[migration-mapping.md](./migration-mapping.md)). Modules from the requested template that have **no
+Feature plans map to confirmed legacy behavior (see the registry and
+[migration-mapping.md](./migration-mapping.md)). Features from the requested template that have **no
 legacy evidence** were not created as business modules: `subscriptions` (no payments exist), `matches`
 (no matching exists — folded into `likes` as decision D-7) and `preferences` (only `looking_to_meet`,
 which belongs to `profiles`). Evidence-based modules **added**: `friends`, `favorites`, `chat`,
@@ -80,10 +83,10 @@ which belongs to `profiles`). Evidence-based modules **added**: `friends`, `favo
 ## 4. Module layering
 
 ```
-HTTP ─► <name>.routes.ts ─► validate(schemas) ─► <name>.controller.ts ─► <name>.service.ts ─► <Name>Repository (interface)
+HTTP ─► routes/<name>.routes.ts ─► validate(schemas) ─► controllers/<name>.controller.ts ─► services/<name>.service.ts ─► repositories
                                                         │                       │                      │
                                               res.locals.validated     business rules,          implemented in
-                                              sendSuccess()            throws AppError          src/database/repositories
+                                              sendSuccess()            throws AppError          src/repositories
                                                                        uses integrations/*
 ```
 
@@ -101,7 +104,7 @@ Account states checked on every token refresh: pending, active, suspended, delet
 
 ## 6. Data access (prepared — D-2)
 
-- `DatabaseClient` (connect/disconnect/ping/transaction) and `Repository<T, Id>` contracts exist.
+- `DatabaseClient` (connect/disconnect/ping/transaction) and `Repository<T, Id>` contracts exist in `src/repositories`.
 - No driver/ORM installed, no connection, no migrations — by instruction.
 - When approved: client in `src/database/client.ts`, health check reports `checks.database`, shutdown disconnects.
 

@@ -3,7 +3,7 @@
 Every feature listed here was confirmed by reading its PHP source (paths relative to
 `Existing_Code/well-known/`). Bug ids (B-xx) refer to
 [existing-project-analysis.md §9](./existing-project-analysis.md#9-identified-technical-issues-bug-catalogue).
-Module-level detail (planned endpoints, rules) lives in `src/modules/<module>/README.md`.
+Feature-level detail (planned endpoints, rules) lives in `documentation/module-plans/<feature>/README.md`.
 
 ## 1. Inspection checklist results
 
@@ -94,20 +94,20 @@ Module-level detail (planned endpoints, rules) lives in `src/modules/<module>/RE
 ### F-05 Profile & account management
 - **Files:** `users.php` (router by `q`), `include/user-profile.php`, `include/user-account.php`, `include/user-location.php`, `include/user-home.php` (public view), `aside-right-profile.inc.php`, `user-save.php`, `user-check/user-account.php`, `user-check/username-duplicate.php`, `user-check/old_password-check.php`, `php/php.inc.php#get_member_profile`.
 - **Tables:** `user` + `race`, `height`, `education_level`, `general`, `countries`, `country_states`, `country_state_cities`, `timezones`.
-- **Data:** see `src/modules/profiles/README.md`.
+- **Data:** see `documentation/module-plans/profiles/README.md`.
 - **Rules:** relationship status 9 "Offline" hides the profile from search; `other_religion` only when religion = Other; "Other" looking-to-meet stores free text; profile shows age, sun sign, Chinese zodiac, local time of each location, country flag, nationality list; account page changes email/username/password (old password required).
 - **Issues:** B-07 (critical), B-08, B-17.
 
 ### F-06 Photos, avatar, videos, background music
 - **Files:** `include/user-photo.php`, `user-check/photo.php`, `include/user-video.php`, `include/user-background.php`, `user-check/background.php`, `user-check/user-background.php`, `php/php.inc.php#get_member_image*`.
 - **Tables:** `user_photo` (14 slots), `user.img`, `user.profile_img`, `user.video`, `user.bg_music`.
-- **Rules:** see `src/modules/media/README.md`.
+- **Rules:** see `documentation/module-plans/media/README.md`.
 - **Issues:** B-29 (critical), Flash MP3 player.
 
 ### F-07 Search & discovery lists
 - **Files:** `search.php`, `search-check.php`, `include/zipcode.class.php`, `view/front_new_members.php`, `view/front_member_birthdays.php`, `view/member_by_con.php`, `user-friends-bday.php`, `php.inc.php#get_online_members`.
 - **Tables:** `user`, `zip_code`, `countries`, `country_states`, `race`, `user_country_visited`, `online_users`.
-- **Rules:** filters and visibility in `src/modules/discovery/README.md`; country matches birth country or either address.
+- **Rules:** filters and visibility in `documentation/module-plans/discovery/README.md`; country matches birth country or either address.
 - **Issues:** B-03.
 
 ### F-08 Likes
@@ -144,13 +144,13 @@ Module-level detail (planned endpoints, rules) lives in `src/modules/<module>/RE
 ### F-14 Video calls
 - **Files:** `video_chat.php`, `video-call.php`, `common/video_chat.php`, `notify.php`, `polling.php`, `cancel_meeting.php`, `update_status.php`, `check_meeting_status.php`, `notify_leave.php`; legacy `webcam/start-chat.php`, `ajax/updateStratus.php`, `php/signaling.php`.
 - **Tables:** `video_chat`; legacy webcam rows in `chat`.
-- **Rules:** see `src/modules/video-calls/README.md` (VideoSDK prebuilt, 60-second auto-end, `Join`/`Expired`).
+- **Rules:** see `documentation/module-plans/video-calls/README.md` (VideoSDK prebuilt, 60-second auto-end, `Join`/`Expired`).
 - **Issues:** B-12, B-13, B-04 (API key in page), unauthenticated meeting URLs.
 
 ### F-15 Travel: visited / planning to visit
 - **Files:** `include/user-visited_country.php`, `include/user-visiting_country.php`, `user-check/visited_country.php`, `user-check/visiting_country.php`, `view/member_by_con.php`.
 - **Tables:** `user_country_visited`, `user_visiting_country`.
-- **Rules:** see `src/modules/travel/README.md`.
+- **Rules:** see `documentation/module-plans/travel/README.md`.
 
 ### F-16 Status posts & comments
 - **Files:** `user-posts1.php`, `user-posts.php`, `user-posts-add.php`, `user-posts-details.php`. **Tables:** `user_posts`, `user_posts_comments`.
@@ -176,7 +176,7 @@ Module-level detail (planned endpoints, rules) lives in `src/modules/<module>/RE
 
 ### F-21 Administration panel (`/wt/`)
 - **Files:** `wt/*.php`, `wt/include/*.php`, `wt/common/more_action.php`, `wt/common/save.php`, `wt/common/update_priority.php`.
-- **Capabilities:** see `src/modules/admin/README.md`.
+- **Capabilities:** see `documentation/module-plans/admin/README.md`.
 - **Issues:** B-05, B-21, B-28, B-32.
 
 ### F-22 Reference data

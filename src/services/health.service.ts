@@ -1,5 +1,5 @@
-import { appConfig } from '../../config/app.config.js';
-import type { HealthCheckData } from './health.types.js';
+import { appConfig } from '../config/app.config.js';
+import type { HealthCheckData } from '../entities/health.types.js';
 
 export const healthService = {
   getHealth(): HealthCheckData {

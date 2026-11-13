@@ -10,7 +10,7 @@
 export type ModuleStatus = 'implemented' | 'planned';
 
 export interface ModuleDefinition {
-  /** Folder name under src/modules and Swagger tag. */
+  /** Feature name and Swagger tag. */
   name: string;
   /** Mount path relative to /api/v1. */
   basePath: string;

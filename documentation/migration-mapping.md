@@ -2,7 +2,7 @@
 
 Purpose: make sure no existing feature, business rule or validation is lost — and that no legacy
 bug is carried over. Machine-readable version of the file/table mapping:
-[`src/modules/module-registry.ts`](../src/modules/module-registry.ts).
+[`src/common/constants/module-registry.ts`](../src/common/constants/module-registry.ts).
 
 **Migration status legend:** ✅ implemented · 🧱 scaffolded (folder + README + registry entry, no endpoints) ·
 🗑️ intentionally not migrated · ❓ needs a team decision.

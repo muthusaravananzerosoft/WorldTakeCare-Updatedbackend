@@ -4,12 +4,12 @@ import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import { appConfig } from './config/app.config.js';
 import { corsOptions } from './config/cors.config.js';
-import { openApiDocument } from './docs/openapi.js';
+import { openApiDocument } from './routes/openapi.js';
 import { errorMiddleware } from './middleware/error.middleware.js';
 import { notFoundMiddleware } from './middleware/not-found.middleware.js';
 import { requestIdMiddleware } from './middleware/request-id.middleware.js';
 import { requestLoggerMiddleware } from './middleware/request-logger.middleware.js';
-import { apiRouter } from './routes.js';
+import { apiRouter } from './routes/index.js';
 
 /**
  * Builds the Express application without starting a server, so tests can

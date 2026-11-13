@@ -1,6 +1,6 @@
 import { appConfig } from '../config/app.config.js';
 import { ERROR_CODES } from '../common/constants/error-codes.constants.js';
-import { MODULES } from '../modules/module-registry.js';
+import { MODULES } from '../common/constants/module-registry.js';
 
 const meta = {
   type: 'object',

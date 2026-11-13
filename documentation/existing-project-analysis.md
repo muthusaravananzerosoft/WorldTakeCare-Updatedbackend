@@ -246,7 +246,8 @@ through the unrestricted photo upload and later emptied *(inferred)*.
 
 ## 8. Email and notification functionality
 
-All "notifications" are emails or computed header badges — see `src/modules/notifications/README.md`.
+All "notifications" are emails or computed header badges — see
+`documentation/module-plans/notifications/README.md`.
 Templates are inline HTML heredocs in each handler (welcome, activation, password reset, like,
 contact, resend activation, birthday). There is no notification table, queue, retry, unsubscribe,
 or push notification.

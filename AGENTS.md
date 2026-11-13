@@ -22,8 +22,11 @@ npm run verify       # typecheck + lint + test + build — run before finishing 
 ## Conventions
 
 - Relative imports use the `.js` extension (NodeNext ESM). Type-only imports use `import type`.
-- Module layout and checklist: `src/modules/README.md`. Register routers only in `src/routes.ts`
-  and keep `src/modules/module-registry.ts` + `src/docs/openapi.ts` in sync.
+- Keep HTTP routes in `src/routes/`, controllers in `src/controllers/`, business logic in
+  `src/services/`, persistence contracts and implementations in `src/repositories/`,
+  request schemas in `src/validators/`, and domain types in `src/entities/`.
+- Register routers in `src/routes/index.ts` and keep
+  `src/common/constants/module-registry.ts` + `src/routes/openapi.ts` in sync.
 - Responses only through `sendSuccess` / `sendError`; throw `AppError` for expected failures.
 - Validate every input with `validate({ params, query, body })` (Zod); read from `res.locals.validated`.
 - Identity only from the verified token — never from request fields. No state changes via GET.
