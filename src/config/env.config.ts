@@ -23,6 +23,11 @@ const envSchema = z.object({
     )
     .pipe(z.array(z.url({ error: 'Each CORS origin must be a valid URL' })).min(1)),
   API_DOCS_ENABLED: booleanString.optional(),
+  // Optional: API runs without a database until this is set (health reports 'not_configured').
+  DATABASE_URL: z
+    .url({ error: 'DATABASE_URL must be a valid URL, e.g. mysql://root@localhost:3306/dbname' })
+    .optional(),
+  DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
   LOG_FORMAT: z.enum(['dev', 'combined', 'common', 'short', 'tiny']).default('dev'),
   JSON_BODY_LIMIT: z.string().default('1mb'),
   TRUST_PROXY: z

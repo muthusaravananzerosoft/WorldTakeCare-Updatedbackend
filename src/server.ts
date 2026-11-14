@@ -1,8 +1,22 @@
 import type { Server } from 'node:http';
 import { createApp } from './app.js';
 import { appConfig } from './config/app.config.js';
+import { env } from './config/env.config.js';
+import { databaseClient } from './database/client.js';
 
 const app = createApp();
+
+if (env.DATABASE_URL) {
+  try {
+    await databaseClient.connect();
+    console.info('Database connected');
+  } catch (error) {
+    // Start anyway: /api/v1/health reports checks.database = 'down'.
+    console.error('Database connection failed — starting without it:', error);
+  }
+} else {
+  console.info('DATABASE_URL not set — running without a database');
+}
 
 const server: Server = app.listen(appConfig.port, () => {
   console.info(
@@ -32,11 +46,15 @@ function shutdown(signal: NodeJS.Signals) {
   }, appConfig.shutdownTimeoutMs);
   forceExit.unref();
 
-  // Future: close database pool, WebSocket server and queues here.
-  server.close((error) => {
+  server.close(async (error) => {
     if (error) {
       console.error('Error while closing server:', error);
       process.exit(1);
+    }
+    try {
+      await databaseClient.disconnect();
+    } catch (dbError) {
+      console.error('Error while disconnecting database:', dbError);
     }
     console.info('HTTP server closed');
     process.exit(0);

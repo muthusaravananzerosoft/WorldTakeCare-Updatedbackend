@@ -1,8 +1,9 @@
 import { appConfig } from '../config/app.config.js';
+import { databaseClient } from '../database/client.js';
 import type { HealthCheckData } from '../entities/health.types.js';
 
 export const healthService = {
-  getHealth(): HealthCheckData {
+  async getHealth(): Promise<HealthCheckData> {
     return {
       status: 'ok',
       service: appConfig.name,
@@ -12,7 +13,7 @@ export const healthService = {
       uptimeSeconds: Math.round(process.uptime()),
       timestamp: new Date().toISOString(),
       checks: {
-        database: 'not_configured',
+        database: await databaseClient.ping(),
       },
     };
   },

@@ -1,12 +1,20 @@
 # Database layer
 
-**Status: prepared, not connected.** No driver, ORM, models, migrations or
-credentials exist yet — by design, until the team approves a target database.
+**Status: connected (mysql2), schema still the legacy clone.** `client.ts` implements the
+`DatabaseClient` contract (`connect` / `disconnect` / `ping` / `transaction` / `query`) with a
+shared mysql2 pool, configured by `DATABASE_URL` + `DATABASE_POOL_SIZE` (see
+`src/config/env.config.ts`). The target database is currently **MariaDB/MySQL** — the local
+`worldtakecare` DB is a structure-only clone of the legacy schema which will be adjusted per
+requirements (see `documentation/migration-mapping.md`).
 
 ## What exists
 
-Database access contracts and repository interfaces live in `src/repositories/`.
-No database connection or migration files are implemented yet.
+- `src/database/client.ts` — `databaseClient` singleton (one pool for the process, lazy-created).
+- `src/repositories/` — `DatabaseClient`, `TransactionContext` and generic `Repository<T>`
+  contracts. No repository implementations yet.
+- `src/server.ts` — calls `connect()` before listening (logs and continues on failure so health
+  can report `down`) and `disconnect()` during graceful shutdown.
+- `src/services/health.service.ts` — reports `checks.database` as `up` / `down` / `not_configured`.
 
 ## Legacy database (reference only — do not connect)
 
@@ -18,22 +26,21 @@ No database connection or migration files are implemented yet.
   data contains many orphan rows.
 - Full analysis: [`documentation/database-analysis.md`](../../documentation/database-analysis.md).
 
-## How to wire a database in (after approval)
+## How repositories should use the client
 
-1. Install the approved driver/ORM in this project only.
-2. Add `DATABASE_URL` (and pool settings) to `src/config/env.config.ts` and `.env.example`.
-3. Implement `DatabaseClient` in `src/repositories/database-client.interface.ts` (one instance, created at startup).
-4. Call `connect()` in `server.ts` before `listen`, and `disconnect()` in the shutdown handler.
-5. Report `ping()` in `src/services/health.service.ts` (`checks.database`).
-6. Implement repositories in `src/repositories/` against the interfaces; services receive them by injection.
-7. Put migrations in the chosen tool's location. The first migration
-   should reproduce the **target** schema in `documentation/database-analysis.md` §7, not the legacy one.
-8. Use a separate test database; never point tests at production or the legacy DB.
+1. Services depend on repository **interfaces**, not on `databaseClient` directly.
+2. Repository implementations call `databaseClient.query()` for reads, and run multi-write
+   operations inside `databaseClient.transaction(tx => ...)` using the
+   `MysqlTransactionContext.connection`.
+3. Migrations go through the approved migration tool once decided
+   (`documentation/database-migrations.md`). The target schema is the adjusted one,
+   not the raw legacy clone.
+4. Use a separate test database; never point tests at production or the legacy DB.
 
 ## Rules
 
-- Services never import a driver/ORM directly — only repository interfaces.
-- No raw string-concatenated SQL. Parameterised queries only (the legacy app's SQL injection
-  surface must not be reproduced).
+- Services never import `mysql2` directly — only repositories do.
+- No raw string-concatenated SQL. Parameterised queries only (`?` placeholders) — the legacy
+  app's SQL injection surface must not be reproduced.
 - Passwords are never stored with MD5. Legacy MD5 hashes are migrated via rehash-on-login
   (see `documentation/migration-mapping.md` → Authentication).

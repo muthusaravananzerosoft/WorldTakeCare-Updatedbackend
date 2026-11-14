@@ -105,10 +105,13 @@ Account states checked on every token refresh: pending, active, suspended, delet
 ## 6. Data access (prepared — D-2)
 
 - `DatabaseClient` (connect/disconnect/ping/transaction) and `Repository<T, Id>` contracts exist in `src/repositories`.
-- No driver/ORM installed, no connection, no migrations — by instruction.
-- When approved: client in `src/database/client.ts`, health check reports `checks.database`, shutdown disconnects.
+- Implemented as `databaseClient` (`src/database/client.ts`) — a mysql2 pool configured by
+  `DATABASE_URL`/`DATABASE_POOL_SIZE`. Health reports `checks.database`; shutdown disconnects.
+- Target database is **MariaDB/MySQL** (matches legacy); the local `worldtakecare` DB is a
+  structure-only clone of the legacy schema, adjusted per requirements.
+- No migration tool or schema migrations yet — see `documentation/database-migrations.md`.
 
-**Recommendation (for approval):** PostgreSQL 16+ with a type-safe query layer (Drizzle ORM or Kysely),
+**Original recommendation (superseded by the MySQL decision):** PostgreSQL 16+ with a type-safe query layer (Drizzle ORM or Kysely),
 because the target model needs real FKs, transactions, `timestamptz`, JSON, full-text and geo queries (PostGIS
 for zip-radius search). Staying on MariaDB is viable (the legacy is MariaDB 10.11 and the dataset is small);
 in that case use InnoDB + `utf8mb4` everywhere and the same query layer. The ETL is required either way
