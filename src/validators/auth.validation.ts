@@ -46,7 +46,7 @@ export const registerSchema = z
       .trim()
       .length(2, 'Country code must be 2 letters')
       .transform((value) => value.toUpperCase()),
-    role: z.enum(REGISTRABLE_ROLES).default('user'),
+    role: z.enum(REGISTRABLE_ROLES).default('member'),
     captchaToken: z.string().optional(),
   })
   .refine((data) => data.email === data.confirmEmail, {

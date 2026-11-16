@@ -36,6 +36,8 @@ export async function verifyAccessToken(token: string): Promise<AuthUser> {
   return {
     id: Number(payload.sub),
     role:
-      role === USER_ROLES.ADMIN || role === USER_ROLES.GUIDE ? (role as UserRole) : USER_ROLES.USER,
+      role === USER_ROLES.ADMIN || role === USER_ROLES.GUIDE
+        ? (role as UserRole)
+        : USER_ROLES.MEMBER,
   };
 }

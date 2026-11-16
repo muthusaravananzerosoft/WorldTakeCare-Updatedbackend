@@ -52,8 +52,9 @@ function mapStatus(row: UserRow): AccountStatus {
 /** New `role` column wins; legacy `roles` tinyint (1 = admin) is the fallback for migrated rows. */
 function mapRole(row: UserRow): UserRole {
   if (row.role === 'guide' || row.role === 'admin') return row.role;
-  if (row.role === 'user') return USER_ROLES.USER;
-  return row.roles === 1 ? USER_ROLES.ADMIN : USER_ROLES.USER;
+  // 'member' is the current name; 'user' covers rows written before the rename.
+  if (row.role === 'member' || row.role === 'user') return USER_ROLES.MEMBER;
+  return row.roles === 1 ? USER_ROLES.ADMIN : USER_ROLES.MEMBER;
 }
 
 function mapRow(row: UserRow): UserRecord {

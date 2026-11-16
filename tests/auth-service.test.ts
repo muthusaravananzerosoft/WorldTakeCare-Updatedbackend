@@ -276,7 +276,7 @@ describe('auth service', () => {
       passwordHash: md5,
       firstName: 'Old',
       lastName: 'Timer',
-      role: USER_ROLES.USER,
+      role: USER_ROLES.MEMBER,
       status: 'active',
     });
 

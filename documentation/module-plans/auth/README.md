@@ -8,7 +8,7 @@ from the moment they click the email link — no separate login step.
 
 ## Implemented endpoints (`/api/v1/auth`)
 
-`POST /register` (fields match the legacy homepage form + new `role: user|guide`),
+`POST /register` (fields match the legacy homepage form + new `role: member|guide`),
 `GET /activate?token=`, `POST /resend-activation`, `POST /login` (email only),
 `POST /refresh` (rotation + reuse detection), `POST /logout`,
 `POST /forgot-password` + `POST /reset-password` (non-enumerating),
