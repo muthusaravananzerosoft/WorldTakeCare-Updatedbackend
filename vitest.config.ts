@@ -7,6 +7,7 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       CORS_ORIGINS: 'http://localhost:3000',
+      JWT_ACCESS_SECRET: 'test-secret-test-secret-test-secret-1234',
     },
   },
 });

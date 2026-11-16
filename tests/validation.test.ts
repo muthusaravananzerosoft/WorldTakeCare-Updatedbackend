@@ -28,7 +28,6 @@ function buildTestApp() {
 
   app.get('/boom', () => {
     throw new Error('database exploded');
-    
   });
 
   app.get('/conflict', () => {

@@ -32,7 +32,7 @@ export const MODULES = [
   {
     name: 'auth',
     basePath: '/auth',
-    status: 'planned',
+    status: 'implemented',
     summary:
       'Registration, email activation, login/logout, password reset, social sign-in (Google, Microsoft, Apple, Facebook, Twitter).',
     legacyFiles: [

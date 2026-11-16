@@ -1,6 +1,25 @@
-# auth (planned)
+# auth (implemented — core; social login pending)
 
-Replaces session-based PHP authentication (`$_SESSION['member_id']`).
+Replaces session-based PHP authentication (`$_SESSION['member_id']`) with
+JWT access tokens (15 min) + rotating hashed refresh tokens (30 days).
+
+## Implemented endpoints (`/api/v1/auth`)
+
+`POST /register` (fields match the legacy homepage form + new `role: user|guide`),
+`GET /activate?token=`, `POST /resend-activation`, `POST /login` (email only),
+`POST /refresh` (rotation + reuse detection), `POST /logout`,
+`POST /forgot-password` + `POST /reset-password` (non-enumerating),
+`GET /me` (Bearer JWT).
+
+Differences from the plan below: activation is `GET` (email links must be
+GET — the link is clicked in a mail client) and reset routes are named
+`forgot-password` / `reset-password`. Social login
+(`POST /social/:provider`) and email-availability land with the
+SocialAuthProvider adapters once OAuth credentials exist.
+
+Mail is sent through the `MailSender` adapter — currently the console
+implementation (links are printed to the server log) until SMTP credentials
+are provided.
 
 ## Legacy behaviour to preserve
 

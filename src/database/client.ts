@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import mysql, { type Pool, type PoolConnection } from 'mysql2/promise';
+import mysql, { type Pool, type PoolConnection, type ResultSetHeader } from 'mysql2/promise';
 import { env } from '../config/env.config.js';
 import type { DependencyStatus } from '../entities/health.types.js';
 import type {
@@ -51,6 +51,12 @@ class MysqlDatabaseClient implements DatabaseClient {
   async query<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
     const [rows] = await this.getPool().query(sql, params);
     return rows as T[];
+  }
+
+  /** Parameterised INSERT/UPDATE/DELETE; returns the driver result header (insertId, affectedRows). */
+  async execute(sql: string, params: unknown[] = []): Promise<ResultSetHeader> {
+    const [result] = await this.getPool().query<ResultSetHeader>(sql, params);
+    return result;
   }
 
   async transaction<T>(work: (tx: TransactionContext) => Promise<T>): Promise<T> {

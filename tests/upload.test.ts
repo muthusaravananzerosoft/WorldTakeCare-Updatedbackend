@@ -20,12 +20,10 @@ app.use(errorMiddleware);
 
 describe('upload middleware', () => {
   it('accepts an allowed image type and exposes the file in memory', async () => {
-    const res = await request(app)
-      .post('/photo')
-      .attach('file', Buffer.from('fake-png-bytes'), {
-        filename: 'a.png',
-        contentType: 'image/png',
-      });
+    const res = await request(app).post('/photo').attach('file', Buffer.from('fake-png-bytes'), {
+      filename: 'a.png',
+      contentType: 'image/png',
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.mime).toBe('image/png');
@@ -33,24 +31,20 @@ describe('upload middleware', () => {
   });
 
   it('rejects a disallowed file type with a JSON 415', async () => {
-    const res = await request(app)
-      .post('/photo')
-      .attach('file', Buffer.from('MZ90'), {
-        filename: 'x.exe',
-        contentType: 'application/x-msdownload',
-      });
+    const res = await request(app).post('/photo').attach('file', Buffer.from('MZ90'), {
+      filename: 'x.exe',
+      contentType: 'application/x-msdownload',
+    });
 
     expect(res.status).toBe(415);
     expect(res.body.error.code).toBe('UNSUPPORTED_FILE_TYPE');
   });
 
   it('rejects an oversized file with a JSON 413', async () => {
-    const res = await request(app)
-      .post('/tiny')
-      .attach('file', Buffer.alloc(50), {
-        filename: 'big.bin',
-        contentType: 'application/octet-stream',
-      });
+    const res = await request(app).post('/tiny').attach('file', Buffer.alloc(50), {
+      filename: 'big.bin',
+      contentType: 'application/octet-stream',
+    });
 
     expect(res.status).toBe(413);
     expect(res.body.error.code).toBe('PAYLOAD_TOO_LARGE');

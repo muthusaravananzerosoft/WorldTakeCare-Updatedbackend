@@ -34,17 +34,17 @@ describe('requireAuth', () => {
 
 describe('with a configured verifier', () => {
   it('sets req.user from the verified token', async () => {
-    configureTokenVerifier(() => ({ id: 42, role: USER_ROLES.MEMBER }));
+    configureTokenVerifier(() => ({ id: 42, role: USER_ROLES.USER }));
 
     const res = await request(app).get('/me').set('Authorization', 'Bearer valid-token');
     expect(res.status).toBe(200);
-    expect(res.body.user).toEqual({ id: 42, role: 'member' });
+    expect(res.body.user).toEqual({ id: 42, role: 'user' });
   });
 
   it('rejects a token the verifier refuses', async () => {
     configureTokenVerifier((token) => {
       if (token !== 'good') throw new Error('bad token');
-      return { id: 1, role: USER_ROLES.MEMBER };
+      return { id: 1, role: USER_ROLES.USER };
     });
 
     const res = await request(app).get('/me').set('Authorization', 'Bearer bad');
@@ -55,7 +55,7 @@ describe('with a configured verifier', () => {
 
 describe('requireRole', () => {
   it('rejects a member on an admin route with a JSON 403', async () => {
-    configureTokenVerifier(() => ({ id: 7, role: USER_ROLES.MEMBER }));
+    configureTokenVerifier(() => ({ id: 7, role: USER_ROLES.USER }));
     const res = await request(app).get('/admin').set('Authorization', 'Bearer t');
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('FORBIDDEN');

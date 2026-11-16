@@ -14,9 +14,10 @@ This repository contains **only the backend**. The Next.js frontend lives in a s
 | Middleware (rate limits, uploads, requireAuth/requireRole seam) | ✅ |
 | Integration adapter interfaces (mail, social, storage, video, captcha, geoip, chat, maps, AI) | ✅ interfaces — implementations need API keys |
 | `GET /api/v1/health` + Swagger/OpenAPI | ✅ |
+| Auth module (`/api/v1/auth`) | ✅ register, activate, resend, login, refresh (rotation + reuse detection), logout, forgot/reset password, `GET /me` — JWT 15 min + 30-day hashed refresh tokens; social login pending OAuth keys |
 | Business features (20) | 🧱 plans in `documentation/module-plans/`; registered in `src/common/constants/module-registry.ts` |
 | Database | 🔌 mysql2 pool connected (`src/database/client.ts`); local `worldtakecare` DB = legacy-clone schema, adjusted per requirements |
-| Auth, realtime, integrations | ⏸ boundaries documented; implementation is the next phase |
+| Mail / social / other integrations | ⏸ adapter interfaces live; mail uses the console sender until SMTP keys arrive |
 
 ## Quick start
 
@@ -50,11 +51,11 @@ src/
   config/       environment, application and CORS configuration
   routes/       route registration, health route and OpenAPI document
   controllers/  HTTP controllers
-  services/     business logic (health implemented)
+  services/     business logic (health, auth implemented)
   repositories/ database and repository contracts
   validators/   request validation schemas
   entities/     domain and response types
-  middleware/   request id, logging, validation, not-found and errors
+  middleware/   request id, logging, validation, rate limits, uploads, auth, not-found and errors
   database/     database decision and integration notes
   common/       constants, errors, interfaces, responses, types and utilities
   integrations/ realtime/ ai/   future integration boundaries

@@ -40,6 +40,23 @@ const envSchema = z.object({
       return Number.isInteger(hops) && hops >= 0 ? hops : false;
     }),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  // Auth — dev default keeps local runs/test working; MUST be overridden in production.
+  JWT_ACCESS_SECRET: z.string().min(32).default('dev-only-secret-change-me-0123456789'),
+  ACCESS_TOKEN_TTL_MIN: z.coerce.number().int().positive().default(15),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  // Base URL used to build links inside transactional emails.
+  APP_BASE_URL: z.url().default('http://localhost:4000'),
+  // Outbound mail. When SMTP_HOST is unset the app uses the console mailer
+  // (links printed to the server log) — real SMTP activates automatically.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  SMTP_SECURE: z
+    .string()
+    .default('false')
+    .transform((value) => value === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default('WorldTakeCare <no-reply@worldtakecare.local>'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   UPLOAD_MAX_FILE_SIZE_MB: z.coerce.number().int().positive().max(100).default(10),

@@ -3,6 +3,11 @@ import { createApp } from './app.js';
 import { appConfig } from './config/app.config.js';
 import { env } from './config/env.config.js';
 import { databaseClient } from './database/client.js';
+import { configureTokenVerifier } from './middleware/auth.middleware.js';
+import { verifyAccessToken } from './services/jwt.service.js';
+
+// Plug the real JWT verifier into the auth middleware seam.
+configureTokenVerifier(verifyAccessToken);
 
 const app = createApp();
 
