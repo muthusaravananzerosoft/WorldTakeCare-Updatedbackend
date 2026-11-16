@@ -71,7 +71,13 @@ export const openApiDocument = {
           },
         ],
         responses: {
-          '200': { description: 'Account activated' },
+          '200': {
+            description:
+              'Account activated — returns the token pair so the user is logged in immediately',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } },
+            },
+          },
           '400': { description: 'Invalid, used or expired token' },
         },
       },
@@ -295,7 +301,10 @@ export const openApiDocument = {
                 properties: {
                   accessToken: { type: 'string' },
                   refreshToken: { type: 'string' },
-                  accessTokenExpiresIn: { type: 'integer' },
+                  accessTokenExpiresIn: {
+                    type: ['integer', 'null'],
+                    description: 'Seconds until expiry — null when tokens do not expire',
+                  },
                 },
               },
             },

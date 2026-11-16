@@ -42,7 +42,8 @@ const envSchema = z.object({
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   // Auth — dev default keeps local runs/test working; MUST be overridden in production.
   JWT_ACCESS_SECRET: z.string().min(32).default('dev-only-secret-change-me-0123456789'),
-  ACCESS_TOKEN_TTL_MIN: z.coerce.number().int().positive().default(15),
+  // Minutes until an access token expires. 0 = access tokens never expire.
+  ACCESS_TOKEN_TTL_MIN: z.coerce.number().int().min(0).default(0),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   // Base URL used to build links inside transactional emails.
   APP_BASE_URL: z.url().default('http://localhost:4000'),

@@ -1,7 +1,10 @@
 # auth (implemented — core; social login pending)
 
 Replaces session-based PHP authentication (`$_SESSION['member_id']`) with
-JWT access tokens (15 min) + rotating hashed refresh tokens (30 days).
+JWT access tokens (non-expiring per current requirement —
+`ACCESS_TOKEN_TTL_MIN=0`) + rotating hashed refresh tokens (30 days).
+Activation issues the token pair immediately: users are authenticated
+from the moment they click the email link — no separate login step.
 
 ## Implemented endpoints (`/api/v1/auth`)
 

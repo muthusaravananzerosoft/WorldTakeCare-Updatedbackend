@@ -66,7 +66,7 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
     return {
       accessToken: await signAccessToken(user),
       refreshToken,
-      accessTokenExpiresIn: env.ACCESS_TOKEN_TTL_MIN * 60,
+      accessTokenExpiresIn: env.ACCESS_TOKEN_TTL_MIN > 0 ? env.ACCESS_TOKEN_TTL_MIN * 60 : null,
     };
   }
 
@@ -160,7 +160,14 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
     async activate(rawToken: string) {
       const userId = await consumeAuthToken(rawToken, 'activation');
       await users.setActive(userId);
-      return { message: 'Account activated. You can now log in.' };
+      const user = await users.findById(userId);
+      if (!user) throw AppError.notFound('User not found');
+      // Authentication starts at activation — issue the token pair immediately.
+      return {
+        message: 'Account activated. You are now logged in.',
+        user: toPublic(user),
+        tokens: await issueTokenPair(user),
+      };
     },
 
     async resendActivation(email: string) {

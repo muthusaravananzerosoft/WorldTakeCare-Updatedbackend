@@ -45,8 +45,8 @@ export interface PublicUser {
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
-  /** Seconds until the access token expires. */
-  accessTokenExpiresIn: number;
+  /** Seconds until the access token expires — null when tokens do not expire. */
+  accessTokenExpiresIn: number | null;
 }
 
 export interface AuthResult {

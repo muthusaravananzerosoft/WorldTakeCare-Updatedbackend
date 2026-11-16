@@ -1,3 +1,4 @@
+import { decodeJwt } from 'jose';
 import { describe, expect, it } from 'vitest';
 import { USER_ROLES } from '../src/common/constants/auth.constants.js';
 import type { MailMessage, MailSender } from '../src/integrations/mail/mail-sender.interface.js';
@@ -151,7 +152,12 @@ describe('auth service', () => {
       svc.login({ email: REGISTER.email, password: REGISTER.password }),
     ).rejects.toMatchObject({ statusCode: 403, code: 'ACCOUNT_NOT_ACTIVATED' });
 
-    await svc.activate(extractToken(sent[0]!.text));
+    const activated = await svc.activate(extractToken(sent[0]!.text));
+    // Activation already authenticates — token pair arrives with the response.
+    expect(activated.tokens.accessToken).toBeTruthy();
+    expect(activated.tokens.refreshToken).toHaveLength(64);
+    expect(activated.user.email).toBe(REGISTER.email);
+
     const res = await svc.login({ email: REGISTER.email, password: REGISTER.password });
     expect(res.user.email).toBe(REGISTER.email);
     expect(res.tokens.accessToken).toBeTruthy();
@@ -188,6 +194,22 @@ describe('auth service', () => {
     const claims = await verifyAccessToken(pair.accessToken);
     expect(claims.id).toBe(1);
     expect(claims.role).toBe('guide');
+  });
+
+  it('issues access tokens without an exp claim (ACCESS_TOKEN_TTL_MIN=0)', async () => {
+    const { users } = fakeUsers();
+    const { tokens } = fakeTokens();
+    const { mail, sent } = fakeMail();
+    const svc = createAuthService({ users, tokens, mail });
+
+    await svc.register({ ...REGISTER });
+    const { tokens: pair } = await svc.activate(extractToken(sent[0]!.text));
+
+    expect(decodeJwt(pair.accessToken).exp).toBeUndefined();
+    expect(pair.accessTokenExpiresIn).toBeNull();
+    // …and it still verifies + carries identity
+    const claims = await verifyAccessToken(pair.accessToken);
+    expect(claims.id).toBe(1);
   });
 
   it('rotates refresh tokens and revokes the session on reuse', async () => {

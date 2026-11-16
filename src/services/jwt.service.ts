@@ -9,15 +9,20 @@ function secretKey(): Uint8Array {
   return new TextEncoder().encode(env.JWT_ACCESS_SECRET);
 }
 
-/** Short-lived JWT — verified statelessly by requireAuth on every request. */
+/**
+ * Access JWT — verified statelessly by requireAuth on every request.
+ * ACCESS_TOKEN_TTL_MIN > 0 sets an `exp` claim; 0 means the token never expires.
+ */
 export async function signAccessToken(user: { id: number; role: UserRole }): Promise<string> {
-  return new SignJWT({ role: user.role })
+  const jwt = new SignJWT({ role: user.role })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(String(user.id))
     .setIssuedAt()
-    .setIssuer(ISSUER)
-    .setExpirationTime(`${env.ACCESS_TOKEN_TTL_MIN}m`)
-    .sign(secretKey());
+    .setIssuer(ISSUER);
+  if (env.ACCESS_TOKEN_TTL_MIN > 0) {
+    jwt.setExpirationTime(`${env.ACCESS_TOKEN_TTL_MIN}m`);
+  }
+  return jwt.sign(secretKey());
 }
 
 /**

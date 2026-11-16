@@ -14,7 +14,7 @@ This repository contains **only the backend**. The Next.js frontend lives in a s
 | Middleware (rate limits, uploads, requireAuth/requireRole seam) | ✅ |
 | Integration adapter interfaces (mail, social, storage, video, captcha, geoip, chat, maps, AI) | ✅ interfaces — implementations need API keys |
 | `GET /api/v1/health` + Swagger/OpenAPI | ✅ |
-| Auth module (`/api/v1/auth`) | ✅ register, activate, resend, login, refresh (rotation + reuse detection), logout, forgot/reset password, `GET /me` — JWT 15 min + 30-day hashed refresh tokens; social login pending OAuth keys |
+| Auth module (`/api/v1/auth`) | ✅ register, activate (issues tokens immediately), resend, login, refresh (rotation + reuse detection), logout, forgot/reset password, `GET /me` — non-expiring JWT + 30-day hashed refresh tokens; social login pending OAuth keys |
 | Business features (20) | 🧱 plans in `documentation/module-plans/`; registered in `src/common/constants/module-registry.ts` |
 | Database | 🔌 mysql2 pool connected (`src/database/client.ts`); local `worldtakecare` DB = legacy-clone schema, adjusted per requirements |
 | Mail / social / other integrations | ⏸ adapter interfaces live; mail uses the console sender until SMTP keys arrive |
