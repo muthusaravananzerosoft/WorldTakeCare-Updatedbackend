@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from 'express';
+import { MulterError } from 'multer';
 import { ZodError } from 'zod';
 import { ERROR_CODES } from '../common/constants/error-codes.constants.js';
 import { HTTP_STATUS } from '../common/constants/http-status.constants.js';
@@ -56,6 +57,18 @@ export const errorMiddleware: ErrorRequestHandler = (err: unknown, req, res, _ne
       HTTP_STATUS.PAYLOAD_TOO_LARGE,
       ERROR_CODES.PAYLOAD_TOO_LARGE,
       'Request body is too large',
+    );
+    return;
+  }
+
+  if (err instanceof MulterError) {
+    const tooLarge = err.code === 'LIMIT_FILE_SIZE';
+    sendError(
+      req,
+      res,
+      tooLarge ? HTTP_STATUS.PAYLOAD_TOO_LARGE : HTTP_STATUS.BAD_REQUEST,
+      tooLarge ? ERROR_CODES.PAYLOAD_TOO_LARGE : ERROR_CODES.BAD_REQUEST,
+      tooLarge ? 'Uploaded file is too large' : `Upload failed: ${err.message}`,
     );
     return;
   }

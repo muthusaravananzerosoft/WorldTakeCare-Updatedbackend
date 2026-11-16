@@ -4,20 +4,24 @@ Every third-party service is wrapped in an adapter behind a TypeScript interface
 modules depend on *what* they need (e.g. `MailSender`) and never on a vendor SDK.
 Swapping a provider is a change in this folder only.
 
-Planned adapters, all **confirmed in the legacy PHP source**:
+**Status: interfaces defined — implementations arrive once API keys/accounts are provided.**
 
-| Folder (planned) | Interface | Legacy usage | Legacy files |
+| Folder | Interface file | Status | Source |
 |---|---|---|---|
-| `mail/` | `MailSender.send({ to, subject, html, text })` | Welcome, activation link, password-reset code, "X liked your profile", contact form, admin resend-activation, birthday wishes | `mailer.php` (PHPMailer SMTP SSL/465), `php/mail/mail.function.php` (older sendmail path), `cron.php` |
-| `social-auth/` | `SocialAuthProvider.exchange(code) → { providerId, email, firstName, lastName }` | Google + Twitter (Hybridauth v2), Microsoft Graph + Apple (Hybridauth v3), Facebook (PHP SDK) | `social-login.php`, `microsoft-login.php`, `apple-login.php`, `facebook-php-sdk/`, `social-login-config.php` |
-| `video/` | `VideoProvider.createMeeting()` / `.createToken(userId, meetingId)` | VideoSDK.live prebuilt RTC (one-to-one calls). Legacy Flash ScriptCam/Adobe Stratus is obsolete — not migrated | `video_chat.php`, `webcam/start-chat.php` |
-| `captcha/` | `CaptchaVerifier.verify(token, ip)` | Google reCAPTCHA v2 on registration (client only) and contact form (server-verified) | `check_reg.php`, `contact-by-message.php` |
-| `geoip/` | `GeoIpLookup.countryCode(ip)` | ipinfo.io — pre-selects the visitor's country in country dropdowns | `php/php.inc.php#get_countries_orderby` |
-| `storage/` | `MediaStorage.put/get/delete(key)` | Local disk `users/{id}/` (gallery), `users/{id}/avata/` (avatar), `img/node/` (CMS/blog images) | `user-check/photo.php`, `user-check/background.php`, `wt/common/save.php` |
-| `newsletter/` *(needs decision)* | — | Mailchimp PHP SDK is present in the web root but **no application code calls it** | `Mailchimp.php`, `mailchimp/` |
+| `mail/` | `mail-sender.interface.ts` — `MailSender.send({ to, subject, html, text })` | interface ready | Legacy: welcome, activation, password reset, like-notify, contact, birthday mail (`mailer.php`, `cron.php`) |
+| `social-auth/` | `social-auth.interface.ts` — `SocialAuthProvider.exchange(code) → SocialProfile` | interface ready | Legacy: Google + Twitter (Hybridauth v2), Microsoft + Apple (Hybridauth v3), Facebook PHP SDK |
+| `video/` | `video-provider.interface.ts` — `VideoProvider.createMeeting() / .createToken()` | interface ready | Legacy: VideoSDK.live (`video_chat.php`) |
+| `captcha/` | `captcha-verifier.interface.ts` — `CaptchaVerifier.verify(token, ip)` | interface ready | Legacy: reCAPTCHA v2 (registration, contact) |
+| `geoip/` | `geo-ip.interface.ts` — `GeoIpLookup.lookup(ip)` | interface ready | Legacy: ipinfo.io country pre-selection |
+| `storage/` | `media-storage.interface.ts` — `MediaStorage.put/getUrl/delete(key)` | interface ready | Legacy: `users/{id}/` disk folders (photos, avatar, music) |
+| `chat/` | `chat-provider.interface.ts` — `ChatProvider.publish/subscribe/markRead` | interface ready | **New (lead decision): Firebase** replaces legacy chat polling |
+| `maps/` | `maps-provider.interface.ts` — `MapsProvider.geocode/reverseGeocode` | interface ready | **New (lead decision): Google Maps** — use-cases to confirm |
+| `ai/` | `ai-provider.interface.ts` — `AiProvider.complete(messages)` | interface ready | **New (lead decision): OpenAI** — see `src/ai/README.md` |
+| `newsletter/` | — | needs decision | Mailchimp SDK present in legacy web root but never called |
 
 ## Security rule
 
 The legacy source contains live secrets (SMTP password, Google/Twitter/Microsoft OAuth
 secrets, Apple private key, VideoSDK key, ipinfo token, reCAPTCHA secret). **None may be
-copied.** All must be rotated before go-live and supplied through environment variables.
+copied.** All must be rotated before go-live and supplied through environment variables —
+the reserved names are listed in `.env.example`.

@@ -44,6 +44,9 @@ WorldTakeCare/
 │   ├── middleware/
 │   │   ├── request-id.middleware.ts # X-Request-Id correlation
 │   │   ├── request-logger.middleware.ts (morgan)
+│   │   ├── rate-limit.middleware.ts # createRateLimiter + apiLimiter on /api/v1
+│   │   ├── upload.middleware.ts     # multer memory storage + type/size checks
+│   │   ├── auth.middleware.ts       # requireAuth/requireRole + TokenVerifier seam
 │   │   ├── validate.middleware.ts   # Zod validation of params/query/body
 │   │   ├── not-found.middleware.ts
 │   │   └── error.middleware.ts      # the only place errors become HTTP responses
@@ -76,9 +79,10 @@ which belongs to `profiles`). Evidence-based modules **added**: `friends`, `favo
 | 4 | `cors(corsOptions)` | Allow-listed browser origins, credentials, `X-Request-Id` exposed; no-Origin clients (mobile, curl) allowed |
 | 5 | `express.json` / `urlencoded` | Body parsing with size limit (`JSON_BODY_LIMIT`) |
 | 6 | Swagger (`/api/docs`, `/api/docs.json`) | Only when docs are enabled (default off in production); CSP relaxed on that route only |
-| 7 | `/api/v1` → `apiRouter` | Module routers; per-route `validate()` |
-| 8 | `notFoundMiddleware` | JSON 404 `ROUTE_NOT_FOUND` |
-| 9 | `errorMiddleware` | `AppError` → its status/code; Zod → 400; bad JSON → 400; too large → 413; anything else → 500 (message hidden in production, logged with request id) |
+| 7 | `apiLimiter` | Per-IP rate limit on `/api/v1` → JSON 429 `TOO_MANY_REQUESTS` |
+| 8 | `/api/v1` → `apiRouter` | Module routers; per-route `validate()`, `requireAuth`/`requireRole`, `createUpload()` |
+| 9 | `notFoundMiddleware` | JSON 404 `ROUTE_NOT_FOUND` |
+| 10 | `errorMiddleware` | `AppError` → its status/code; Zod → 400; bad JSON → 400; too large → 413; Multer → 413/400; anything else → 500 (message hidden in production, logged with request id) |
 
 ## 4. Module layering
 
@@ -98,7 +102,9 @@ HTTP ─► routes/<name>.routes.ts ─► validate(schemas) ─► controllers/
 
 Recommended: **short-lived JWT access token (15 min) + rotating opaque refresh token (30 days)** stored
 hashed in the database. Web: refresh token in an `httpOnly; Secure; SameSite=Lax` cookie; mobile: secure storage.
-Middleware `requireAuth` sets `req.user = { id, role }`; `requireRole('admin')` guards `/admin`.
+Middleware exists: `requireAuth` (src/middleware/auth.middleware.ts) verifies the Bearer token through a
+registered `TokenVerifier` and sets `req.user = { id, role }`; `requireRole('admin')` guards `/admin`.
+The JWT verifier is plugged in when the auth module lands (task 4) via `configureTokenVerifier()`.
 Passwords: Argon2id; legacy MD5 hashes verified once and rehashed (migration-mapping §5).
 Account states checked on every token refresh: pending, active, suspended, deleted.
 
@@ -120,7 +126,7 @@ because the schema is being normalised.
 ## 7. Realtime, integrations, AI
 
 - `src/realtime/README.md` — WebSocket events replacing legacy polling (chat, presence, calls, badges).
-- `src/integrations/README.md` — adapters for every confirmed external service; secrets via env only.
+- `src/integrations/README.md` — adapter interfaces defined for mail, social-auth, video, captcha, geoip, storage, chat (Firebase), maps (Google), ai (OpenAI); implementations wait on API keys.
 - `src/ai/README.md` — reserved; nothing in legacy.
 
 ## 8. Scalability

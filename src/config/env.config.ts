@@ -40,6 +40,9 @@ const envSchema = z.object({
       return Number.isInteger(hops) && hops >= 0 ? hops : false;
     }),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
+  UPLOAD_MAX_FILE_SIZE_MB: z.coerce.number().int().positive().max(100).default(10),
 });
 
 export type Env = z.infer<typeof envSchema>;

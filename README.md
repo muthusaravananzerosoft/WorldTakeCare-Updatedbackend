@@ -11,6 +11,8 @@ This repository contains **only the backend**. The Next.js frontend lives in a s
 |---|---|
 | Legacy analysis (code + database) | ✅ complete — see `documentation/` |
 | Server skeleton (config, CORS, security headers, logging, validation, errors, 404, graceful shutdown) | ✅ |
+| Middleware (rate limits, uploads, requireAuth/requireRole seam) | ✅ |
+| Integration adapter interfaces (mail, social, storage, video, captcha, geoip, chat, maps, AI) | ✅ interfaces — implementations need API keys |
 | `GET /api/v1/health` + Swagger/OpenAPI | ✅ |
 | Business features (20) | 🧱 plans in `documentation/module-plans/`; registered in `src/common/constants/module-registry.ts` |
 | Database | 🔌 mysql2 pool connected (`src/database/client.ts`); local `worldtakecare` DB = legacy-clone schema, adjusted per requirements |

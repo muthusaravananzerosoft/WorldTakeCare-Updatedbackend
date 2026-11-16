@@ -9,6 +9,7 @@ import { errorMiddleware } from './middleware/error.middleware.js';
 import { notFoundMiddleware } from './middleware/not-found.middleware.js';
 import { requestIdMiddleware } from './middleware/request-id.middleware.js';
 import { requestLoggerMiddleware } from './middleware/request-logger.middleware.js';
+import { apiLimiter } from './middleware/rate-limit.middleware.js';
 import { apiRouter } from './routes/index.js';
 
 /**
@@ -41,7 +42,7 @@ export function createApp(): Express {
     );
   }
 
-  app.use(appConfig.apiPrefix, apiRouter);
+  app.use(appConfig.apiPrefix, apiLimiter, apiRouter);
 
   app.use(notFoundMiddleware);
   app.use(errorMiddleware);
