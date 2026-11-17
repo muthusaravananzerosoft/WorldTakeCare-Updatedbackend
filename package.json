@@ -1,8 +1,8 @@
 {
-  "name": "worldtakecare-api",
+  "name": "worldtaker-api",
   "version": "0.1.0",
   "private": true,
-  "description": "WorldTakeCare REST API — Node.js + Express + TypeScript backend replacing the legacy WorldTaker PHP application",
+  "description": "WorldTaker REST API — Node.js + Express + TypeScript backend replacing the legacy WorldTaker PHP application",
   "type": "module",
   "main": "dist/server.js",
   "engines": {

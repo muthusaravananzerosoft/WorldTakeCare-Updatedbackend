@@ -149,7 +149,7 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
       const token = await createOneTimeToken(user.id, 'activation', ACTIVATION_TOKEN_TTL_MS);
       await mail.send({
         to: user.email,
-        subject: 'Activate your WorldTakeCare account',
+        subject: 'Activate your WorldTaker account',
         text: `Welcome ${user.firstName}! Activate your account: ${env.APP_BASE_URL}/api/v1/auth/activate?token=${token}`,
       });
       return {
@@ -176,7 +176,7 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
         const token = await createOneTimeToken(user.id, 'activation', ACTIVATION_TOKEN_TTL_MS);
         await mail.send({
           to: user.email,
-          subject: 'Activate your WorldTakeCare account',
+          subject: 'Activate your WorldTaker account',
           text: `Activate your account: ${env.APP_BASE_URL}/api/v1/auth/activate?token=${token}`,
         });
       }
@@ -222,7 +222,7 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
         const token = await createOneTimeToken(user.id, 'password_reset', RESET_TOKEN_TTL_MS);
         await mail.send({
           to: user.email,
-          subject: 'Reset your WorldTakeCare password',
+          subject: 'Reset your WorldTaker password',
           text: `Reset your password: ${env.APP_BASE_URL}/reset-password?token=${token}`,
         });
       }

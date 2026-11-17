@@ -57,7 +57,7 @@ const envSchema = z.object({
     .transform((value) => value === 'true'),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().default('WorldTakeCare <no-reply@worldtakecare.local>'),
+  SMTP_FROM: z.string().default('WorldTaker <no-reply@worldtaker.local>'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   UPLOAD_MAX_FILE_SIZE_MB: z.coerce.number().int().positive().max(100).default(10),

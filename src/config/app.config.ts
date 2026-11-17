@@ -2,7 +2,7 @@ import { API_PREFIX, API_VERSION } from '../common/constants/api.constants.js';
 import { env } from './env.config.js';
 
 export const appConfig = {
-  name: 'WorldTakeCare API',
+  name: 'WorldTaker API',
   version: '0.1.0',
   env: env.NODE_ENV,
   isProduction: env.NODE_ENV === 'production',

@@ -18,7 +18,7 @@ export const openApiDocument = {
     title: appConfig.name,
     version: appConfig.version,
     description:
-      'REST API for WorldTakeCare (successor of the WorldTaker PHP application). ' +
+      'REST API for WorldTaker (successor of the WorldTaker PHP application). ' +
       'All endpoints are versioned under `/api/v1` and return the standard envelope ' +
       '`{ success, data | error, meta }`.',
   },

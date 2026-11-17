@@ -1,4 +1,4 @@
-# WorldTakeCare backend architecture
+# WorldTaker backend architecture
 
 Standalone **Node.js 24 + Express 5 + TypeScript** REST API. It replaces the PHP backend of
 WorldTaker and is consumed by the Next.js web app (separate repository/team) and, later, Android/iOS apps.
@@ -16,7 +16,7 @@ The design is driven by the legacy analysis ([existing-project-analysis.md](./ex
 ## 2. Directory layout
 
 ```
-WorldTakeCare/
+WorldTaker/
 ├── src/
 │   ├── server.ts                    # process entry: listen, graceful shutdown, process-level error hooks
 │   ├── app.ts                       # createApp(): middleware pipeline, docs, routes, 404, errors (no listen → testable)

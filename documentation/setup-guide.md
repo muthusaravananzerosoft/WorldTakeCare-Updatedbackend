@@ -8,7 +8,7 @@
 ## First run
 
 ```bash
-cd "E:/MUTHU SARAVANAN/WorldTakeCare"
+cd "E:/MUTHU SARAVANAN/WorldTaker"
 npm install
 cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env
 npm run dev
@@ -17,7 +17,7 @@ npm run dev
 The server prints:
 
 ```
-WorldTakeCare API listening on http://localhost:4000/api/v1 (development)
+WorldTaker API listening on http://localhost:4000/api/v1 (development)
 Swagger UI: http://localhost:4000/api/docs
 ```
 

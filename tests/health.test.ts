@@ -14,7 +14,7 @@ describe('GET /api/v1/health', () => {
       success: true,
       data: {
         status: 'ok',
-        service: 'WorldTakeCare API',
+        service: 'WorldTaker API',
         environment: 'test',
         apiVersion: 'v1',
         checks: { database: 'not_configured' },

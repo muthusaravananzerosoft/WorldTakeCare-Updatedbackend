@@ -3,7 +3,7 @@ import { USER_ROLES, type UserRole } from '../common/constants/auth.constants.js
 import { env } from '../config/env.config.js';
 import type { AuthUser } from '../middleware/auth.middleware.js';
 
-const ISSUER = 'worldtakecare-api';
+const ISSUER = 'worldtaker-api';
 
 function secretKey(): Uint8Array {
   return new TextEncoder().encode(env.JWT_ACCESS_SECRET);

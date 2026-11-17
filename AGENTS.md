@@ -1,4 +1,4 @@
-# AGENTS.md — WorldTakeCare API
+# AGENTS.md — WorldTaker API
 
 ## Project
 

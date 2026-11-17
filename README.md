@@ -1,6 +1,6 @@
-# WorldTakeCare API
+# WorldTaker API
 
-Backend for **WorldTakeCare**, the successor of the legacy *WorldTaker* PHP dating/travel-meetup site
+Backend for **WorldTaker**, the successor of the legacy *WorldTaker* PHP dating/travel-meetup site
 ("Meet a Foreigner In Your Hometown"). Node.js 24 · Express 5 · TypeScript · REST (`/api/v1`).
 
 This repository contains **only the backend**. The Next.js frontend lives in a separate repository.
