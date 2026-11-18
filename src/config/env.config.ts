@@ -46,7 +46,10 @@ const envSchema = z.object({
   ACCESS_TOKEN_TTL_MIN: z.coerce.number().int().min(0).default(0),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   // Base URL used to build links inside transactional emails.
-  APP_BASE_URL: z.url().default('http://localhost:4000'),
+  APP_BASE_URL: z
+    .url()
+    .default('http://localhost:4000')
+    .transform((value) => value.replace(/\/+$/, '')),
   // Outbound mail. When SMTP_HOST is unset the app uses the console mailer
   // (links printed to the server log) — real SMTP activates automatically.
   SMTP_HOST: z.string().optional(),
