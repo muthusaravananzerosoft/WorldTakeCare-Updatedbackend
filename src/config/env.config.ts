@@ -50,6 +50,12 @@ const envSchema = z.object({
     .url()
     .default('http://localhost:4000')
     .transform((value) => value.replace(/\/+$/, '')),
+  // Frontend site base URL — activation/reset email links point at the
+  // web app's pages, which then call the API themselves.
+  WEB_APP_URL: z
+    .url()
+    .default('http://localhost:3000')
+    .transform((value) => value.replace(/\/+$/, '')),
   // Outbound mail. When SMTP_HOST is unset the app uses the console mailer
   // (links printed to the server log) — real SMTP activates automatically.
   SMTP_HOST: z.string().optional(),
