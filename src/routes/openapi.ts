@@ -750,6 +750,120 @@ export const openApiDocument = {
         },
       },
     },
+    '/connections': {
+      get: {
+        tags: ['connections'],
+        summary: 'My connections — member or guide view',
+        operationId: 'listConnections',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['pending', 'accepted', 'declined'] } },
+          { name: 'type', in: 'query', schema: { type: 'string', enum: ['sent', 'received', 'all'], default: 'all' } },
+          { name: 'tripId', in: 'query', schema: { type: 'integer', minimum: 1 } },
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Page of my connections with trip + party details',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ConnectionListResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+        },
+      },
+      post: {
+        tags: ['connections'],
+        summary: 'Send a connection request — member→guide or guide→member',
+        operationId: 'createConnection',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/ConnectionCreateRequest' } },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Request created (or a previously declined request re-opened)',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ConnectionResponse' } },
+            },
+          },
+          '400': { description: 'Validation failed or self-request' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Wrong role for the chosen direction' },
+          '404': { description: 'Trip, guide or member not found' },
+          '409': { description: 'Pending request already exists or already connected' },
+        },
+      },
+    },
+    '/connections/{id}': {
+      get: {
+        tags: ['connections'],
+        summary: 'Connection detail — parties only',
+        operationId: 'getConnection',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Connection with trip + member + guide details',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ConnectionResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Connection not found or not yours' },
+        },
+      },
+    },
+    '/connections/{id}/accept': {
+      patch: {
+        tags: ['connections'],
+        summary: 'Accept a pending request — recipient only',
+        operationId: 'acceptConnection',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Connection accepted — parties may now chat',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ConnectionResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Connection not found or not yours' },
+          '409': { description: 'Request already responded to' },
+        },
+      },
+    },
+    '/connections/{id}/decline': {
+      patch: {
+        tags: ['connections'],
+        summary: 'Decline a pending request — recipient only',
+        operationId: 'declineConnection',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Connection declined — chat stays closed',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ConnectionResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Connection not found or not yours' },
+          '409': { description: 'Request already responded to' },
+        },
+      },
+    },
     '/health': {
       get: {
         tags: ['health'],
@@ -1330,6 +1444,78 @@ export const openApiDocument = {
             type: 'object',
             properties: {
               countries: { type: 'array', items: { $ref: '#/components/schemas/FeaturedCountry' } },
+              page: { type: 'integer' },
+              limit: { type: 'integer' },
+              total: { type: 'integer' },
+              totalPages: { type: 'integer' },
+            },
+          },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      ConnectionCreateRequest: {
+        type: 'object',
+        description:
+          'Exactly one of guideId (member invites guide) or memberId (guide invites member) is required; tripId is optional — omit it for a direct member↔guide request',
+        properties: {
+          tripId: { type: 'integer', minimum: 1 },
+          guideId: { type: 'integer', minimum: 1 },
+          memberId: { type: 'integer', minimum: 1 },
+        },
+      },
+      ConnectionParty: {
+        type: 'object',
+        required: ['id', 'firstName', 'lastName'],
+        properties: {
+          id: { type: 'integer' },
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
+        },
+      },
+      Connection: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          tripId: { type: 'integer' },
+          tripDestination: {
+            type: ['object', 'null'],
+            properties: {
+              id: { type: 'integer' },
+              name: { type: 'string' },
+              countryCode: { type: ['string', 'null'] },
+              countryName: { type: ['string', 'null'] },
+            },
+          },
+          member: { $ref: '#/components/schemas/ConnectionParty' },
+          guide: { $ref: '#/components/schemas/ConnectionParty' },
+          requesterUserId: { type: 'integer' },
+          recipientUserId: { type: 'integer' },
+          requesterRole: { type: 'string', enum: ['member', 'guide'] },
+          status: { type: 'string', enum: ['pending', 'accepted', 'declined'] },
+          requestedAt: { type: 'string', format: 'date-time' },
+          respondedAt: { type: ['string', 'null'], format: 'date-time' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      ConnectionResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: { $ref: '#/components/schemas/Connection' },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      ConnectionListResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: {
+            type: 'object',
+            properties: {
+              connections: { type: 'array', items: { $ref: '#/components/schemas/Connection' } },
               page: { type: 'integer' },
               limit: { type: 'integer' },
               total: { type: 'integer' },

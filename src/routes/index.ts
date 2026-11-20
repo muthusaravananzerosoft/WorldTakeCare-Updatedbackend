@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { adminFeaturedCountryRouter } from './admin-featured-country.routes.js';
 import { authRouter } from './auth.routes.js';
+import { connectionRouter } from './connection.routes.js';
 import { destinationRouter } from './destination.routes.js';
 import { featuredCountryRouter } from './featured-country.routes.js';
 import { healthRouter } from './health.routes.js';
@@ -18,5 +19,6 @@ apiRouter.use('/destinations', destinationRouter);
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/trips', tripRouter);
 apiRouter.use('/posts', postRouter);
+apiRouter.use('/connections', connectionRouter);
 apiRouter.use('/featured-countries', featuredCountryRouter);
 apiRouter.use('/admin/featured-countries', adminFeaturedCountryRouter);

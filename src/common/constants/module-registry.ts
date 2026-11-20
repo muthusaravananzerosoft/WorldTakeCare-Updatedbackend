@@ -306,6 +306,15 @@ export const MODULES = [
     legacyTables: ['trips', 'trip_interests', 'trip_dietary_preferences'],
   },
   {
+    name: 'connections',
+    basePath: '/connections',
+    status: 'implemented',
+    summary:
+      'Member–Guide connection requests — send (both directions), accept/decline, list with filters. An accepted connection is the gate for future chat.',
+    legacyFiles: [],
+    legacyTables: ['connections'],
+  },
+  {
     name: 'featured-countries',
     basePath: '/featured-countries',
     status: 'implemented',
