@@ -70,6 +70,13 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   UPLOAD_MAX_FILE_SIZE_MB: z.coerce.number().int().positive().max(100).default(10),
+  // Geoapify API key for destination geo-search fallback + tourist
+  // attractions. Optional: without it local search still works and
+  // attraction lookups return empty lists.
+  GEOAPIFY_API_KEY: z.string().min(1).optional(),
+  // Unsplash Access Key for the featured-countries image import (seed
+  // script only — never exposed to the frontend). Keep secret.
+  UNSPLASH_ACCESS_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

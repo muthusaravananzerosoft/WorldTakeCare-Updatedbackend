@@ -6,4 +6,5 @@ export * from './captcha/captcha-verifier.interface.js';
 export * from './geoip/geo-ip.interface.js';
 export * from './chat/chat-provider.interface.js';
 export * from './maps/maps-provider.interface.js';
+export * from './places/places-provider.interface.js';
 export * from './ai/ai-provider.interface.js';

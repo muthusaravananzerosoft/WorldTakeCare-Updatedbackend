@@ -243,10 +243,10 @@ export const MODULES = [
   {
     name: 'posts',
     basePath: '/posts',
-    status: 'planned',
-    summary: 'Member status posts with one image, and comments.',
+    status: 'implemented',
+    summary: 'Travel posts with one image + comments. Owner-or-admin edit/delete; auto reading-time.',
     legacyFiles: ['user-posts1.php', 'user-posts-add.php', 'user-posts-details.php'],
-    legacyTables: ['user_posts', 'user_posts_comments'],
+    legacyTables: ['user_posts', 'user_posts_comments', 'posts', 'post_comments'],
   },
   {
     name: 'blog',
@@ -280,6 +280,39 @@ export const MODULES = [
     summary: 'Public contact form (reCAPTCHA + honeypot) emailed to site admin.',
     legacyFiles: ['contact-by-message.php', 'about-us.php', 'wt/contact.php'],
     legacyTables: ['contact'],
+  },
+  {
+    name: 'destinations',
+    basePath: '/destinations',
+    status: 'implemented',
+    summary:
+      'Worldwide destination search (legacy geo tables + external geo-search fallback) and famous tourist attractions near a destination (Geoapify, cached). New module — no direct legacy equivalent.',
+    legacyFiles: ['get_states.php', 'get_cities.php'],
+    legacyTables: [
+      'countries',
+      'country_states',
+      'country_state_cities',
+      'destinations',
+      'attractions',
+    ],
+  },
+  {
+    name: 'trips',
+    basePath: '/trips',
+    status: 'implemented',
+    summary:
+      'My Trips — authenticated trip CRUD (destination, dates, type, interests, dietary preferences, emergency contact, insurance, budget, visibility) + day-wise JSON itinerary referencing attraction ids. New module — designed for future sharing and AI itinerary features.',
+    legacyFiles: [],
+    legacyTables: ['trips', 'trip_interests', 'trip_dietary_preferences'],
+  },
+  {
+    name: 'featured-countries',
+    basePath: '/featured-countries',
+    status: 'implemented',
+    summary:
+      'Top Tourist Countries — curated country cards (landmark image via Unsplash, one-line description, 3 keywords) with admin management under /admin/featured-countries. New module.',
+    legacyFiles: [],
+    legacyTables: ['featured_countries'],
   },
   {
     name: 'reference-data',
