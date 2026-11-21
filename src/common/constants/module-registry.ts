@@ -315,6 +315,15 @@ export const MODULES = [
     legacyTables: ['connections'],
   },
   {
+    name: 'guides',
+    basePath: '/guides',
+    status: 'implemented',
+    summary:
+      'Guide self-service profile — view/upsert own profile (headline, areas, languages, rates, preferences), cover photo upload. verification/profile status backend-managed.',
+    legacyFiles: [],
+    legacyTables: ['guide_profiles'],
+  },
+  {
     name: 'featured-countries',
     basePath: '/featured-countries',
     status: 'implemented',

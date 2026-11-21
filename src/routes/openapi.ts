@@ -864,6 +864,145 @@ export const openApiDocument = {
         },
       },
     },
+    '/guides/me/profile': {
+      get: {
+        tags: ['guides'],
+        summary: 'My guide profile — empty shell when none exists yet',
+        operationId: 'getMyGuideProfile',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'The guide\'s own profile (or empty defaults before first save)',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideProfileResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+        },
+      },
+      patch: {
+        tags: ['guides'],
+        summary: 'Create or partially update my guide profile',
+        operationId: 'upsertMyGuideProfile',
+        security: [{ bearerAuth: [] }],
+        description:
+          'Creates the profile on first call; afterwards only supplied fields change. null clears a field, [] clears an array. verificationStatus/profileStatus are rejected.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/GuideProfileUpdateRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Saved profile',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideProfileResponse' } },
+            },
+          },
+          '400': { description: 'Validation failed or restricted field sent' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+        },
+      },
+    },
+    '/guides/me/profile/cover': {
+      post: {
+        tags: ['guides'],
+        summary: 'Upload/replace cover photo — JPG/PNG/WebP, max 2 MB',
+        operationId: 'uploadGuideCover',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file'],
+                properties: { file: { type: 'string', format: 'binary' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'New cover image URL',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideCoverResponse' } },
+            },
+          },
+          '400': { description: 'Missing file or over 2 MB' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+          '415': { description: 'Not a valid JPG/PNG/WebP image' },
+        },
+      },
+      delete: {
+        tags: ['guides'],
+        summary: 'Remove cover photo',
+        operationId: 'deleteGuideCover',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Cover image removed',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideCoverResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+        },
+      },
+    },
+    '/guides/me/profile/photo': {
+      post: {
+        tags: ['guides'],
+        summary: 'Upload/replace profile photo — JPG/PNG/WebP, max 2 MB',
+        operationId: 'uploadGuideProfileImage',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file'],
+                properties: { file: { type: 'string', format: 'binary' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'New profile image URL',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideProfileImageResponse' } },
+            },
+          },
+          '400': { description: 'Missing file or over 2 MB' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+          '415': { description: 'Not a valid JPG/PNG/WebP image' },
+        },
+      },
+      delete: {
+        tags: ['guides'],
+        summary: 'Remove profile photo',
+        operationId: 'deleteGuideProfileImage',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Profile image removed',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideProfileImageResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+        },
+      },
+    },
     '/health': {
       get: {
         tags: ['health'],
@@ -1520,6 +1659,117 @@ export const openApiDocument = {
               limit: { type: 'integer' },
               total: { type: 'integer' },
               totalPages: { type: 'integer' },
+            },
+          },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      GuideProfileUpdateRequest: {
+        type: 'object',
+        description:
+          'All fields optional. null clears a field, [] clears an array. Restricted fields (verificationStatus, profileStatus, userId) are rejected.',
+        properties: {
+          firstName: { type: 'string', maxLength: 60 },
+          lastName: { type: 'string', maxLength: 60 },
+          headline: { type: ['string', 'null'], maxLength: 160 },
+          bio: { type: ['string', 'null'], maxLength: 2000 },
+          baseCity: { type: ['string', 'null'], maxLength: 120 },
+          countryCode: { type: ['string', 'null'], pattern: '^[A-Z]{2}$' },
+          guidingAreas: { type: ['array', 'null'], items: { type: 'string' }, maxItems: 50 },
+          languages: { type: ['array', 'null'], items: { type: 'string' }, maxItems: 20 },
+          yearsOfExperience: { type: ['integer', 'null'], minimum: 0, maximum: 80 },
+          specialties: { type: ['array', 'null'], items: { type: 'string' }, maxItems: 50 },
+          certificationTitle: { type: ['string', 'null'], maxLength: 160 },
+          tourPreferences: {
+            type: ['object', 'null'],
+            properties: {
+              privateTours: { type: 'boolean' },
+              groupTours: { type: 'boolean' },
+              typicalDuration: { type: 'string', maxLength: 60 },
+              maxGroupSize: { type: 'integer', minimum: 1, maximum: 200 },
+            },
+          },
+          hourlyRate: {
+            type: ['object', 'null'],
+            required: ['amount', 'currency'],
+            properties: {
+              amount: { type: 'number', minimum: 0 },
+              currency: { type: 'string', pattern: '^[A-Z]{3}$' },
+            },
+          },
+          contactPhone: { type: ['string', 'null'] },
+          website: { type: ['string', 'null'], format: 'uri', maxLength: 500 },
+        },
+      },
+      GuideProfile: {
+        type: 'object',
+        properties: {
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
+          headline: { type: ['string', 'null'] },
+          bio: { type: ['string', 'null'] },
+          baseCity: { type: ['string', 'null'] },
+          countryCode: { type: ['string', 'null'] },
+          guidingAreas: { type: ['array', 'null'], items: { type: 'string' } },
+          languages: { type: ['array', 'null'], items: { type: 'string' } },
+          yearsOfExperience: { type: ['integer', 'null'] },
+          specialties: { type: ['array', 'null'], items: { type: 'string' } },
+          certificationTitle: { type: ['string', 'null'] },
+          tourPreferences: { type: ['object', 'null'] },
+          hourlyRate: { type: ['object', 'null'] },
+          contactPhone: { type: ['string', 'null'] },
+          website: { type: ['string', 'null'] },
+          coverImage: {
+            type: ['object', 'null'],
+            properties: { url: { type: 'string' } },
+          },
+          profileImage: {
+            type: ['object', 'null'],
+            properties: { url: { type: 'string' } },
+          },
+          verificationStatus: { type: 'string', enum: ['unverified', 'pending', 'verified', 'rejected'] },
+          profileStatus: { type: 'string', enum: ['draft', 'published', 'suspended'] },
+          updatedAt: { type: ['string', 'null'], format: 'date-time' },
+        },
+      },
+      GuideProfileResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: { $ref: '#/components/schemas/GuideProfile' },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      GuideCoverResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: {
+            type: 'object',
+            properties: {
+              coverImage: {
+                type: ['object', 'null'],
+                properties: { url: { type: 'string' } },
+              },
+            },
+          },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      GuideProfileImageResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: {
+            type: 'object',
+            properties: {
+              profileImage: {
+                type: ['object', 'null'],
+                properties: { url: { type: 'string' } },
+              },
             },
           },
           meta: { $ref: '#/components/schemas/ResponseMeta' },

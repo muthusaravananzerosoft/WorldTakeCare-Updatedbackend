@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import { appConfig } from './config/app.config.js';
 import { corsOptions } from './config/cors.config.js';
+import { env } from './config/env.config.js';
 import { openApiDocument } from './routes/openapi.js';
 import { errorMiddleware } from './middleware/error.middleware.js';
 import { notFoundMiddleware } from './middleware/not-found.middleware.js';
@@ -41,6 +42,9 @@ export function createApp(): Express {
       swaggerUi.setup(openApiDocument, { customSiteTitle: `${appConfig.name} Docs` }),
     );
   }
+
+  // Uploaded media (local-disk MediaStorage) — outside the API prefix.
+  app.use('/uploads', express.static(env.MEDIA_STORAGE_DIR));
 
   app.use(appConfig.apiPrefix, apiLimiter, apiRouter);
 

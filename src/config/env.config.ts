@@ -70,6 +70,9 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   UPLOAD_MAX_FILE_SIZE_MB: z.coerce.number().int().positive().max(100).default(10),
+  // Local-disk media storage root; objects are served under /uploads/*.
+  // Swap the MediaStorage adapter for object storage in production later.
+  MEDIA_STORAGE_DIR: z.string().min(1).default('uploads'),
   // Geoapify API key for destination geo-search fallback + tourist
   // attractions. Optional: without it local search still works and
   // attraction lookups return empty lists.
