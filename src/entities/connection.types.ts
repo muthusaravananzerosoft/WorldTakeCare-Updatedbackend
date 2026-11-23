@@ -7,11 +7,6 @@ export type ConnectionRequesterRole = 'member' | 'guide';
 
 export interface ConnectionRecord {
   id: number;
-<<<<<<< HEAD
-=======
-  /** NULL = direct member↔guide request without a trip. */
-  tripId: number | null;
->>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
   memberId: number;
   guideId: number;
   requesterUserId: number;
@@ -24,19 +19,8 @@ export interface ConnectionRecord {
   updatedAt: string;
 }
 
-<<<<<<< HEAD
 /** List/detail row — base record joined with member/guide display info. */
 export interface ConnectionDetail extends ConnectionRecord {
-=======
-/** List/detail row — base record joined with trip + user display info. */
-export interface ConnectionDetail extends ConnectionRecord {
-  tripDestination: {
-    id: number;
-    name: string;
-    countryCode: string | null;
-    countryName: string | null;
-  } | null;
->>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
   member: ConnectionParty;
   guide: ConnectionParty;
 }
@@ -48,14 +32,8 @@ export interface ConnectionParty {
   lastName: string;
 }
 
-<<<<<<< HEAD
 /** Validated POST /connections body — exactly one of guideId/memberId. */
 export interface CreateConnectionInput {
-=======
-/** Validated POST /connections body — exactly one of guideId/memberId; tripId optional. */
-export interface CreateConnectionInput {
-  tripId?: number | undefined;
->>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
   guideId?: number;
   memberId?: number;
 }
@@ -65,8 +43,4 @@ export type ConnectionListType = 'sent' | 'received' | 'all';
 export interface ConnectionListFilters {
   status?: ConnectionStatus | undefined;
   type: ConnectionListType;
-<<<<<<< HEAD
-=======
-  tripId?: number | undefined;
->>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
 }
