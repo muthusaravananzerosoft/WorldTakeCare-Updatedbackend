@@ -243,10 +243,10 @@ export const MODULES = [
   {
     name: 'posts',
     basePath: '/posts',
-    status: 'planned',
-    summary: 'Member status posts with one image, and comments.',
+    status: 'implemented',
+    summary: 'Travel posts with one image + comments. Owner-or-admin edit/delete; auto reading-time.',
     legacyFiles: ['user-posts1.php', 'user-posts-add.php', 'user-posts-details.php'],
-    legacyTables: ['user_posts', 'user_posts_comments'],
+    legacyTables: ['user_posts', 'user_posts_comments', 'posts', 'post_comments'],
   },
   {
     name: 'blog',
@@ -280,6 +280,24 @@ export const MODULES = [
     summary: 'Public contact form (reCAPTCHA + honeypot) emailed to site admin.',
     legacyFiles: ['contact-by-message.php', 'about-us.php', 'wt/contact.php'],
     legacyTables: ['contact'],
+  },
+  {
+    name: 'connections',
+    basePath: '/connections',
+    status: 'implemented',
+    summary:
+      'Member–Guide connection requests — send (both directions), accept/decline, list with filters. An accepted connection is the gate for future chat.',
+    legacyFiles: [],
+    legacyTables: ['connections'],
+  },
+  {
+    name: 'guides',
+    basePath: '/guides',
+    status: 'implemented',
+    summary:
+      'Guide self-service profile — view/upsert own profile (headline, areas, languages, rates, preferences), cover photo upload. verification/profile status backend-managed.',
+    legacyFiles: [],
+    legacyTables: ['guide_profiles'],
   },
   {
     name: 'reference-data',

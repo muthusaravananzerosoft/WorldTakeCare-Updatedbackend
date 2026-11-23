@@ -4,7 +4,20 @@ import { ERROR_CODES } from '../common/constants/error-codes.constants.js';
 import { HTTP_STATUS } from '../common/constants/http-status.constants.js';
 import { env } from './env.config.js';
 
-const allowedOrigins = new Set(env.CORS_ORIGINS);
+// Built-in allowed origins — the live frontend domains (http + https) and
+// local dev servers, so the API works even if CORS_ORIGINS is incomplete.
+const defaultOrigins = [
+  'http://web.worldtaker.zerosoft.in',
+  'http://worldtaker.zerosoft.in',
+  'http://www.worldtaker.zerosoft.in',
+  'https://web.worldtaker.zerosoft.in',
+  'https://worldtaker.zerosoft.in',
+  'https://www.worldtaker.zerosoft.in',
+  'http://localhost:3000',
+  'http://localhost:3001',
+];
+
+const allowedOrigins = new Set([...defaultOrigins, ...env.CORS_ORIGINS]);
 
 export const corsOptions: CorsOptions = {
   origin(origin, callback) {

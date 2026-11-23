@@ -205,6 +205,511 @@ export const openApiDocument = {
         },
       },
     },
+    '/posts': {
+      get: {
+        tags: ['posts'],
+        summary: 'Paginated travel-post feed (public)',
+        operationId: 'listPosts',
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 50, default: 10 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Page of posts, newest first',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/PostListResponse' } },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['posts'],
+        summary: 'Create a travel post',
+        operationId: 'createPost',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/PostCreateRequest' } },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Post created',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/PostResponse' } },
+            },
+          },
+          '400': { description: 'Validation failed' },
+          '401': { description: 'Missing or invalid token' },
+        },
+      },
+    },
+    '/posts/{id}': {
+      get: {
+        tags: ['posts'],
+        summary: 'Post detail (public)',
+        operationId: 'getPost',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Post detail',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/PostResponse' } },
+            },
+          },
+          '404': { description: 'Post not found' },
+        },
+      },
+      patch: {
+        tags: ['posts'],
+        summary: 'Update a post — owner or admin',
+        operationId: 'updatePost',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/PostUpdateRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Updated post',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/PostResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Post not found' },
+        },
+      },
+      delete: {
+        tags: ['posts'],
+        summary: 'Delete a post — owner or admin',
+        operationId: 'deletePost',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        responses: {
+          '200': { description: 'Post deleted' },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Post not found' },
+        },
+      },
+    },
+    '/posts/{id}/comments': {
+      get: {
+        tags: ['posts'],
+        summary: 'Paginated comments for a post (public)',
+        operationId: 'listComments',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 50, default: 10 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Page of comments, oldest first',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/CommentListResponse' } },
+            },
+          },
+          '404': { description: 'Post not found' },
+        },
+      },
+      post: {
+        tags: ['posts'],
+        summary: 'Add a comment to a post',
+        operationId: 'addComment',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/CommentCreateRequest' } },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Comment created',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/CommentResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Post not found' },
+        },
+      },
+    },
+    '/posts/{id}/comments/{commentId}': {
+      patch: {
+        tags: ['posts'],
+        summary: 'Edit a comment — owner or admin',
+        operationId: 'updateComment',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+          { name: 'commentId', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/CommentCreateRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Updated comment',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/CommentResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Comment not found' },
+        },
+      },
+      delete: {
+        tags: ['posts'],
+        summary: 'Delete a comment — owner or admin',
+        operationId: 'deleteComment',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+          { name: 'commentId', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        responses: {
+          '200': { description: 'Comment deleted' },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Comment not found' },
+        },
+      },
+    },
+    '/connections': {
+      get: {
+        tags: ['connections'],
+        summary: 'My connections — member or guide view',
+        operationId: 'listConnections',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['pending', 'accepted', 'declined'] } },
+          { name: 'type', in: 'query', schema: { type: 'string', enum: ['sent', 'received', 'all'], default: 'all' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Page of my connections with party details',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ConnectionListResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+        },
+      },
+      post: {
+        tags: ['connections'],
+        summary: 'Send a connection request — member→guide or guide→member',
+        operationId: 'createConnection',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/ConnectionCreateRequest' } },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Request created (or a previously declined request re-opened)',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ConnectionResponse' } },
+            },
+          },
+          '400': { description: 'Validation failed or self-request' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Wrong role for the chosen direction' },
+          '404': { description: 'Guide or member not found' },
+          '409': { description: 'Pending request already exists or already connected' },
+        },
+      },
+    },
+    '/connections/{id}': {
+      get: {
+        tags: ['connections'],
+        summary: 'Connection detail — parties only',
+        operationId: 'getConnection',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Connection with member + guide details',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ConnectionResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Connection not found or not yours' },
+        },
+      },
+    },
+    '/connections/{id}/accept': {
+      patch: {
+        tags: ['connections'],
+        summary: 'Accept a pending request — recipient only',
+        operationId: 'acceptConnection',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Connection accepted — parties may now chat',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ConnectionResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Connection not found or not yours' },
+          '409': { description: 'Request already responded to' },
+        },
+      },
+    },
+    '/connections/{id}/decline': {
+      patch: {
+        tags: ['connections'],
+        summary: 'Decline a pending request — recipient only',
+        operationId: 'declineConnection',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Connection declined — chat stays closed',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ConnectionResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Connection not found or not yours' },
+          '409': { description: 'Request already responded to' },
+        },
+      },
+    },
+    '/guides/me/profile': {
+      get: {
+        tags: ['guides'],
+        summary: 'My guide profile — empty shell when none exists yet',
+        operationId: 'getMyGuideProfile',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'The guide\'s own profile (or empty defaults before first save)',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideProfileResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+        },
+      },
+      patch: {
+        tags: ['guides'],
+        summary: 'Create or partially update my guide profile',
+        operationId: 'upsertMyGuideProfile',
+        security: [{ bearerAuth: [] }],
+        description:
+          'Creates the profile on first call; afterwards only supplied fields change. null clears a field, [] clears an array. verificationStatus/profileStatus are rejected.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/GuideProfileUpdateRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Saved profile',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideProfileResponse' } },
+            },
+          },
+          '400': { description: 'Validation failed or restricted field sent' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+        },
+      },
+    },
+    '/guides/me/profile/cover': {
+      post: {
+        tags: ['guides'],
+        summary: 'Upload/replace cover photo — JPG/PNG/WebP, max 2 MB',
+        operationId: 'uploadGuideCover',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file'],
+                properties: { file: { type: 'string', format: 'binary' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'New cover image URL',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideCoverResponse' } },
+            },
+          },
+          '400': { description: 'Missing file or over 2 MB' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+          '415': { description: 'Not a valid JPG/PNG/WebP image' },
+        },
+      },
+      delete: {
+        tags: ['guides'],
+        summary: 'Remove cover photo',
+        operationId: 'deleteGuideCover',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Cover image removed',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideCoverResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+        },
+      },
+    },
+    '/guides/me/profile/photo': {
+      post: {
+        tags: ['guides'],
+        summary: 'Upload/replace profile photo — JPG/PNG/WebP, max 2 MB',
+        operationId: 'uploadGuideProfileImage',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file'],
+                properties: { file: { type: 'string', format: 'binary' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'New profile image URL',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideProfileImageResponse' } },
+            },
+          },
+          '400': { description: 'Missing file or over 2 MB' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+          '415': { description: 'Not a valid JPG/PNG/WebP image' },
+        },
+      },
+      delete: {
+        tags: ['guides'],
+        summary: 'Remove profile photo',
+        operationId: 'deleteGuideProfileImage',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Profile image removed',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideProfileImageResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+        },
+      },
+    },
+    '/guides': {
+      get: {
+        tags: ['guides'],
+        summary: 'Public guide directory — published profiles only',
+        operationId: 'listGuides',
+        parameters: [
+          { name: 'q', in: 'query', schema: { type: 'string', maxLength: 80 }, description: 'Name, city or country search' },
+          { name: 'language', in: 'query', schema: { type: 'string', maxLength: 60 } },
+          { name: 'specialty', in: 'query', schema: { type: 'string', maxLength: 60 } },
+          { name: 'maxHourlyRate', in: 'query', schema: { type: 'number', minimum: 0 }, description: 'Requires currency' },
+          { name: 'currency', in: 'query', schema: { type: 'string', pattern: '^[A-Z]{3}$' } },
+          { name: 'sort', in: 'query', schema: { type: 'string', enum: ['recommended', 'price_asc', 'experience_desc'], default: 'recommended' }, description: 'price_asc requires currency' },
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 12 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Page of published guides',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideListResponse' } },
+            },
+          },
+          '400': { description: 'Invalid filters (e.g. price filter without currency)' },
+        },
+      },
+    },
+    '/guides/{id}': {
+      get: {
+        tags: ['guides'],
+        summary: 'Public guide detail — published only',
+        operationId: 'getGuide',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Public guide detail',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuidePublicResponse' } },
+            },
+          },
+          '404': { description: 'Guide not found, draft or suspended' },
+        },
+      },
+    },
+    '/guides/me/profile/publish': {
+      post: {
+        tags: ['guides'],
+        summary: 'Publish my guide profile — makes it publicly listed',
+        operationId: 'publishGuideProfile',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Published profile',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideProfileResponse' } },
+            },
+          },
+          '400': { description: 'Profile incomplete — details.missing lists required fields' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+          '404': { description: 'No profile saved yet' },
+        },
+      },
+    },
     '/health': {
       get: {
         tags: ['health'],
@@ -306,6 +811,362 @@ export const openApiDocument = {
                     description: 'Seconds until expiry — null when tokens do not expire',
                   },
                 },
+              },
+            },
+          },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      PostCreateRequest: {
+        type: 'object',
+        required: ['title', 'description', 'publishedDate'],
+        properties: {
+          title: { type: 'string', maxLength: 300, example: 'My Madurai temple tour' },
+          description: { type: 'string', maxLength: 20000 },
+          imageUrl: { type: 'string', format: 'uri', maxLength: 500 },
+          publishedDate: { type: 'string', format: 'date', example: '2026-11-19' },
+        },
+      },
+      PostUpdateRequest: {
+        type: 'object',
+        description: 'Same shape as PostCreateRequest; every field optional',
+      },
+      CommentCreateRequest: {
+        type: 'object',
+        required: ['comment'],
+        properties: { comment: { type: 'string', maxLength: 2000 } },
+      },
+      Post: {
+        type: 'object',
+        required: ['id', 'title', 'description', 'readingTimeMin', 'publishedDate', 'author'],
+        properties: {
+          id: { type: 'integer' },
+          title: { type: 'string' },
+          description: { type: 'string' },
+          imageUrl: { type: ['string', 'null'] },
+          readingTimeMin: {
+            type: 'integer',
+            description: 'Auto-calculated estimate (~200 words/min)',
+          },
+          publishedDate: { type: 'string', format: 'date' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+          author: {
+            type: 'object',
+            properties: {
+              id: { type: 'integer' },
+              firstName: { type: ['string', 'null'] },
+              lastName: { type: ['string', 'null'] },
+            },
+          },
+          commentCount: { type: 'integer' },
+        },
+      },
+      Comment: {
+        type: 'object',
+        required: ['id', 'postId', 'comment', 'author'],
+        properties: {
+          id: { type: 'integer' },
+          postId: { type: 'integer' },
+          comment: { type: 'string' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+          author: {
+            type: 'object',
+            properties: {
+              id: { type: 'integer' },
+              firstName: { type: ['string', 'null'] },
+              lastName: { type: ['string', 'null'] },
+            },
+          },
+        },
+      },
+      PostResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: { $ref: '#/components/schemas/Post' },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      PostListResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: {
+            type: 'object',
+            properties: {
+              posts: { type: 'array', items: { $ref: '#/components/schemas/Post' } },
+              page: { type: 'integer' },
+              limit: { type: 'integer' },
+              total: { type: 'integer' },
+              totalPages: { type: 'integer' },
+            },
+          },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      CommentResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: { $ref: '#/components/schemas/Comment' },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      CommentListResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: {
+            type: 'object',
+            properties: {
+              comments: { type: 'array', items: { $ref: '#/components/schemas/Comment' } },
+              page: { type: 'integer' },
+              limit: { type: 'integer' },
+              total: { type: 'integer' },
+              totalPages: { type: 'integer' },
+            },
+          },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      ConnectionCreateRequest: {
+        type: 'object',
+        description:
+          'Exactly one of guideId (member invites guide) or memberId (guide invites member) is required',
+        properties: {
+          guideId: { type: 'integer', minimum: 1 },
+          memberId: { type: 'integer', minimum: 1 },
+        },
+      },
+      ConnectionParty: {
+        type: 'object',
+        required: ['id', 'firstName', 'lastName'],
+        properties: {
+          id: { type: 'integer' },
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
+        },
+      },
+      Connection: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          member: { $ref: '#/components/schemas/ConnectionParty' },
+          guide: { $ref: '#/components/schemas/ConnectionParty' },
+          requesterUserId: { type: 'integer' },
+          recipientUserId: { type: 'integer' },
+          requesterRole: { type: 'string', enum: ['member', 'guide'] },
+          status: { type: 'string', enum: ['pending', 'accepted', 'declined'] },
+          requestedAt: { type: 'string', format: 'date-time' },
+          respondedAt: { type: ['string', 'null'], format: 'date-time' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      ConnectionResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: { $ref: '#/components/schemas/Connection' },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      ConnectionListResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: {
+            type: 'object',
+            properties: {
+              connections: { type: 'array', items: { $ref: '#/components/schemas/Connection' } },
+              page: { type: 'integer' },
+              limit: { type: 'integer' },
+              total: { type: 'integer' },
+              totalPages: { type: 'integer' },
+            },
+          },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      GuideProfileUpdateRequest: {
+        type: 'object',
+        description:
+          'All fields optional. null clears a field, [] clears an array. Restricted fields (verificationStatus, profileStatus, userId) are rejected.',
+        properties: {
+          firstName: { type: 'string', maxLength: 60 },
+          lastName: { type: 'string', maxLength: 60 },
+          headline: { type: ['string', 'null'], maxLength: 160 },
+          bio: { type: ['string', 'null'], maxLength: 2000 },
+          baseCity: { type: ['string', 'null'], maxLength: 120 },
+          countryCode: { type: ['string', 'null'], pattern: '^[A-Z]{2}$' },
+          guidingAreas: { type: ['array', 'null'], items: { type: 'string' }, maxItems: 50 },
+          languages: { type: ['array', 'null'], items: { type: 'string' }, maxItems: 20 },
+          yearsOfExperience: { type: ['integer', 'null'], minimum: 0, maximum: 80 },
+          specialties: { type: ['array', 'null'], items: { type: 'string' }, maxItems: 50 },
+          certificationTitle: { type: ['string', 'null'], maxLength: 160 },
+          tourPreferences: {
+            type: ['object', 'null'],
+            properties: {
+              privateTours: { type: 'boolean' },
+              groupTours: { type: 'boolean' },
+              typicalDuration: { type: 'string', maxLength: 60 },
+              maxGroupSize: { type: 'integer', minimum: 1, maximum: 200 },
+            },
+          },
+          hourlyRate: {
+            type: ['object', 'null'],
+            required: ['amount', 'currency'],
+            properties: {
+              amount: { type: 'number', minimum: 0 },
+              currency: { type: 'string', pattern: '^[A-Z]{3}$' },
+            },
+          },
+          contactPhone: { type: ['string', 'null'] },
+          website: { type: ['string', 'null'], format: 'uri', maxLength: 500 },
+        },
+      },
+      GuideProfile: {
+        type: 'object',
+        properties: {
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
+          headline: { type: ['string', 'null'] },
+          bio: { type: ['string', 'null'] },
+          baseCity: { type: ['string', 'null'] },
+          countryCode: { type: ['string', 'null'] },
+          guidingAreas: { type: ['array', 'null'], items: { type: 'string' } },
+          languages: { type: ['array', 'null'], items: { type: 'string' } },
+          yearsOfExperience: { type: ['integer', 'null'] },
+          specialties: { type: ['array', 'null'], items: { type: 'string' } },
+          certificationTitle: { type: ['string', 'null'] },
+          tourPreferences: { type: ['object', 'null'] },
+          hourlyRate: { type: ['object', 'null'] },
+          contactPhone: { type: ['string', 'null'] },
+          website: { type: ['string', 'null'] },
+          coverImage: {
+            type: ['object', 'null'],
+            properties: { url: { type: 'string' } },
+          },
+          profileImage: {
+            type: ['object', 'null'],
+            properties: { url: { type: 'string' } },
+          },
+          verificationStatus: { type: 'string', enum: ['unverified', 'pending', 'verified', 'rejected'] },
+          profileStatus: { type: 'string', enum: ['draft', 'published', 'suspended'] },
+          updatedAt: { type: ['string', 'null'], format: 'date-time' },
+        },
+      },
+      GuideProfileResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: { $ref: '#/components/schemas/GuideProfile' },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      GuideCoverResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: {
+            type: 'object',
+            properties: {
+              coverImage: {
+                type: ['object', 'null'],
+                properties: { url: { type: 'string' } },
+              },
+            },
+          },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      GuidePublicCard: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', description: "Guide's user id — use in /guides/{id} and connections" },
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
+          headline: { type: ['string', 'null'] },
+          baseCity: { type: ['string', 'null'] },
+          countryCode: { type: ['string', 'null'] },
+          countryName: { type: ['string', 'null'] },
+          languages: { type: ['array', 'null'], items: { type: 'string' } },
+          yearsOfExperience: { type: ['integer', 'null'] },
+          specialties: { type: ['array', 'null'], items: { type: 'string' } },
+          hourlyRate: {
+            type: ['object', 'null'],
+            properties: { amount: { type: 'number' }, currency: { type: 'string' } },
+          },
+          maxGroupSize: { type: ['integer', 'null'] },
+          profileImage: { type: ['object', 'null'], properties: { url: { type: 'string' } } },
+          coverImage: { type: ['object', 'null'], properties: { url: { type: 'string' } } },
+          verificationStatus: { type: 'string', enum: ['unverified', 'pending', 'verified', 'rejected'] },
+          rating: { type: ['number', 'null'], description: 'null until the reviews module exists' },
+          reviewCount: { type: 'integer' },
+        },
+      },
+      GuidePublicDetail: {
+        allOf: [
+          { $ref: '#/components/schemas/GuidePublicCard' },
+          {
+            type: 'object',
+            properties: {
+              bio: { type: ['string', 'null'] },
+              guidingAreas: { type: ['array', 'null'], items: { type: 'string' } },
+              certificationTitle: { type: ['string', 'null'] },
+              tourPreferences: { type: ['object', 'null'] },
+            },
+          },
+        ],
+      },
+      GuidePublicResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: { $ref: '#/components/schemas/GuidePublicDetail' },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      GuideListResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: {
+            type: 'object',
+            properties: {
+              guides: { type: 'array', items: { $ref: '#/components/schemas/GuidePublicCard' } },
+              page: { type: 'integer' },
+              limit: { type: 'integer' },
+              total: { type: 'integer' },
+              totalPages: { type: 'integer' },
+            },
+          },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      GuideProfileImageResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: {
+            type: 'object',
+            properties: {
+              profileImage: {
+                type: ['object', 'null'],
+                properties: { url: { type: 'string' } },
               },
             },
           },

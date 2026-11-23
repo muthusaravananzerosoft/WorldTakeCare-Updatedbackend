@@ -46,7 +46,16 @@ const envSchema = z.object({
   ACCESS_TOKEN_TTL_MIN: z.coerce.number().int().min(0).default(0),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   // Base URL used to build links inside transactional emails.
-  APP_BASE_URL: z.url().default('http://localhost:4000'),
+  APP_BASE_URL: z
+    .url()
+    .default('http://localhost:4000')
+    .transform((value) => value.replace(/\/+$/, '')),
+  // Frontend site base URL — activation/reset email links point at the
+  // web app's pages, which then call the API themselves.
+  WEB_APP_URL: z
+    .url()
+    .default('http://localhost:3000')
+    .transform((value) => value.replace(/\/+$/, '')),
   // Outbound mail. When SMTP_HOST is unset the app uses the console mailer
   // (links printed to the server log) — real SMTP activates automatically.
   SMTP_HOST: z.string().optional(),
@@ -61,6 +70,9 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   UPLOAD_MAX_FILE_SIZE_MB: z.coerce.number().int().positive().max(100).default(10),
+  // Local-disk media storage root; objects are served under /uploads/*.
+  // Swap the MediaStorage adapter for object storage in production later.
+  MEDIA_STORAGE_DIR: z.string().min(1).default('uploads'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -150,7 +150,7 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
       await mail.send({
         to: user.email,
         subject: 'Activate your WorldTaker account',
-        text: `Welcome ${user.firstName}! Activate your account: ${env.APP_BASE_URL}/api/v1/auth/activate?token=${token}`,
+        text: `Welcome ${user.firstName}! Activate your account: ${env.WEB_APP_URL}/activate/?token=${token}`,
       });
       return {
         message: 'Registration successful. Please check your email to activate your account.',
@@ -177,7 +177,7 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
         await mail.send({
           to: user.email,
           subject: 'Activate your WorldTaker account',
-          text: `Activate your account: ${env.APP_BASE_URL}/api/v1/auth/activate?token=${token}`,
+          text: `Activate your account: ${env.WEB_APP_URL}/activate/?token=${token}`,
         });
       }
       // Always identical — the caller cannot learn whether the email exists.
@@ -223,7 +223,7 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
         await mail.send({
           to: user.email,
           subject: 'Reset your WorldTaker password',
-          text: `Reset your password: ${env.APP_BASE_URL}/reset-password?token=${token}`,
+          text: `Reset your password: ${env.WEB_APP_URL}/reset-password/?token=${token}`,
         });
       }
       // Always identical — no email enumeration.
