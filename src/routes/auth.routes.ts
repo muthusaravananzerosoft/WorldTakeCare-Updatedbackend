@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth.middleware.js';
 import { createRateLimiter } from '../middleware/rate-limit.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
+  changePasswordSchema,
   emailOnlySchema,
   loginSchema,
   refreshTokenSchema,
@@ -68,5 +69,12 @@ authRouter.post(
   strict,
   validate({ body: resetPasswordSchema }),
   asyncHandler(authController.resetPassword),
+);
+authRouter.post(
+  '/change-password',
+  strict,
+  requireAuth,
+  validate({ body: changePasswordSchema }),
+  asyncHandler(authController.changePassword),
 );
 authRouter.get('/me', requireAuth, asyncHandler(authController.me));

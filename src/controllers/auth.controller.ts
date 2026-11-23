@@ -50,6 +50,18 @@ export const authController = {
     sendSuccess(req, res, await authService.resetPassword(token, password));
   },
 
+  async changePassword(req: Request, res: Response) {
+    const { currentPassword, newPassword } = body<{
+      currentPassword: string;
+      newPassword: string;
+    }>(res);
+    sendSuccess(
+      req,
+      res,
+      await authService.changePassword(req.user!.id, currentPassword, newPassword),
+    );
+  },
+
   async me(req: Request, res: Response) {
     // req.user is guaranteed by requireAuth
     sendSuccess(req, res, { user: await authService.getMe(req.user!.id) });
@@ -67,6 +79,7 @@ export const authController = {
         'POST /logout',
         'POST /forgot-password',
         'POST /reset-password',
+        'POST /change-password',
         'GET /me',
       ],
     });

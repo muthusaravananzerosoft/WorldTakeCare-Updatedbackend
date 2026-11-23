@@ -237,6 +237,32 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
       return { message: 'Password updated. Please log in again.' };
     },
 
+    /**
+     * Authenticated change of own password (legacy Account page).
+     * Verifies the current password, then rotates every refresh token —
+     * other sessions die; the caller gets a fresh pair so they stay logged in.
+     */
+    async changePassword(
+      userId: number,
+      currentPassword: string,
+      newPassword: string,
+    ): Promise<AuthResult & { message: string }> {
+      const user = await users.findById(userId);
+      if (!user || !(await verifyPassword(user, currentPassword))) {
+        throw new AppError(
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.INVALID_CREDENTIALS,
+          'Current password is incorrect',
+        );
+      }
+      if (currentPassword === newPassword) {
+        throw AppError.badRequest('New password must be different from the current password');
+      }
+      await users.updatePassword(userId, await argonHash(newPassword));
+      await tokens.revokeAllRefreshTokens(userId);
+      return { message: 'Password updated.', user: toPublic(user), tokens: await issueTokenPair(user) };
+    },
+
     async getMe(userId: number): Promise<PublicUser> {
       const user = await users.findById(userId);
       if (!user) throw AppError.notFound('User not found');

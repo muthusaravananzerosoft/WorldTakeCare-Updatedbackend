@@ -284,4 +284,58 @@ describe('auth service', () => {
     expect(res.user.id).toBe(1);
     expect(rows[0]!.passwordHash).toContain('argon2');
   });
+
+  it('changePassword verifies the current password, rotates refresh tokens and keeps the caller logged in', async () => {
+    const { users, rows } = fakeUsers();
+    const { tokens } = fakeTokens();
+    const { mail, sent } = fakeMail();
+    const svc = createAuthService({ users, tokens, mail });
+
+    await svc.register({ ...REGISTER });
+    await svc.activate(extractToken(sent[0]!.text));
+    const login = await svc.login({ email: REGISTER.email, password: REGISTER.password });
+
+    const res = await svc.changePassword(1, REGISTER.password, 'NewPass123');
+
+    // new hash stored, old refresh tokens revoked, fresh pair returned
+    expect(rows[0]!.passwordHash).toContain('argon2');
+    await expect(svc.refresh(login.tokens.refreshToken)).rejects.toMatchObject({
+      statusCode: 401,
+    });
+    expect(res.tokens.accessToken).toBeTruthy();
+    expect(res.tokens.refreshToken).toHaveLength(64);
+    expect(res.user.email).toBe(REGISTER.email);
+    await expect(svc.login({ email: REGISTER.email, password: 'NewPass123' })).resolves.toBeTruthy();
+  });
+
+  it('changePassword rejects a wrong current password without touching anything', async () => {
+    const { users, rows } = fakeUsers();
+    const { tokens } = fakeTokens();
+    const { mail, sent } = fakeMail();
+    const svc = createAuthService({ users, tokens, mail });
+
+    await svc.register({ ...REGISTER });
+    await svc.activate(extractToken(sent[0]!.text));
+    const hashBefore = rows[0]!.passwordHash;
+
+    await expect(svc.changePassword(1, 'wrong-pass-1', 'NewPass123')).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INVALID_CREDENTIALS',
+    });
+    expect(rows[0]!.passwordHash).toBe(hashBefore);
+  });
+
+  it('changePassword rejects the same password as the new one', async () => {
+    const { users } = fakeUsers();
+    const { tokens } = fakeTokens();
+    const { mail, sent } = fakeMail();
+    const svc = createAuthService({ users, tokens, mail });
+
+    await svc.register({ ...REGISTER });
+    await svc.activate(extractToken(sent[0]!.text));
+
+    await expect(
+      svc.changePassword(1, REGISTER.password, REGISTER.password),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
 });

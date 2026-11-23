@@ -73,3 +73,15 @@ export const resetPasswordSchema = z.object({
   token: z.string().min(32, 'Invalid token'),
   password: passwordSchema,
 });
+
+/** Legacy account form: current + new + confirm password. */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: passwordSchema,
+    confirmPassword: z.string().min(1, 'Confirm password is required'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });

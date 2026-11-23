@@ -193,6 +193,31 @@ export const openApiDocument = {
         },
       },
     },
+    '/auth/change-password': {
+      post: {
+        tags: ['auth'],
+        summary:
+          'Change own password (current + new + confirm). Other sessions are revoked; the response carries a fresh token pair so the caller stays logged in.',
+        operationId: 'changePassword',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/ChangePasswordRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Password updated — includes a new token pair',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } },
+            },
+          },
+          '400': { description: 'Wrong current password, weak new password or mismatch' },
+          '401': { description: 'Missing or invalid access token' },
+        },
+      },
+    },
     '/auth/me': {
       get: {
         tags: ['auth'],
@@ -780,6 +805,15 @@ export const openApiDocument = {
         properties: {
           token: { type: 'string' },
           password: { type: 'string', minLength: 8, maxLength: 72 },
+        },
+      },
+      ChangePasswordRequest: {
+        type: 'object',
+        required: ['currentPassword', 'newPassword', 'confirmPassword'],
+        properties: {
+          currentPassword: { type: 'string', minLength: 1 },
+          newPassword: { type: 'string', minLength: 8, maxLength: 72 },
+          confirmPassword: { type: 'string', minLength: 1, description: 'Must equal newPassword' },
         },
       },
       AuthResponse: {
