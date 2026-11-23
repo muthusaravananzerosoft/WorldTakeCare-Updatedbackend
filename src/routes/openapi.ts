@@ -197,7 +197,7 @@ export const openApiDocument = {
       post: {
         tags: ['auth'],
         summary:
-          'Change own password (current + new + confirm). Other sessions are revoked; the response carries a fresh token pair so the caller stays logged in.',
+          'Account save — change email and/or password (current + new + confirm). Other sessions are revoked; the response carries a fresh token pair so the caller stays logged in.',
         operationId: 'changePassword',
         security: [{ bearerAuth: [] }],
         requestBody: {
@@ -809,8 +809,9 @@ export const openApiDocument = {
       },
       ChangePasswordRequest: {
         type: 'object',
-        required: ['currentPassword', 'newPassword', 'confirmPassword'],
+        required: ['email', 'currentPassword', 'newPassword', 'confirmPassword'],
         properties: {
+          email: { type: 'string', format: 'email', description: 'Account email (may be updated)' },
           currentPassword: { type: 'string', minLength: 1 },
           newPassword: { type: 'string', minLength: 8, maxLength: 72 },
           confirmPassword: { type: 'string', minLength: 1, description: 'Must equal newPassword' },

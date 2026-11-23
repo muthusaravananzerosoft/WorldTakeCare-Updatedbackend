@@ -238,12 +238,14 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
     },
 
     /**
-     * Authenticated change of own password (legacy Account page).
-     * Verifies the current password, then rotates every refresh token —
-     * other sessions die; the caller gets a fresh pair so they stay logged in.
+     * Authenticated account save (legacy Account page): email + password in one call.
+     * Verifies the current password, applies the email change when it differs,
+     * then rotates every refresh token — other sessions die; the caller gets a
+     * fresh pair so they stay logged in.
      */
     async changePassword(
       userId: number,
+      email: string,
       currentPassword: string,
       newPassword: string,
     ): Promise<AuthResult & { message: string }> {
@@ -258,9 +260,25 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
       if (currentPassword === newPassword) {
         throw AppError.badRequest('New password must be different from the current password');
       }
+      if (email !== user.email) {
+        const existing = await users.findByEmail(email);
+        if (existing && existing.id !== userId) {
+          throw new AppError(
+            HTTP_STATUS.CONFLICT,
+            ERROR_CODES.EMAIL_TAKEN,
+            'An account with this email already exists',
+          );
+        }
+        await users.updateEmail(userId, email);
+      }
       await users.updatePassword(userId, await argonHash(newPassword));
       await tokens.revokeAllRefreshTokens(userId);
-      return { message: 'Password updated.', user: toPublic(user), tokens: await issueTokenPair(user) };
+      const updated = { ...user, email };
+      return {
+        message: 'Account updated.',
+        user: toPublic(updated),
+        tokens: await issueTokenPair(user),
+      };
     },
 
     async getMe(userId: number): Promise<PublicUser> {

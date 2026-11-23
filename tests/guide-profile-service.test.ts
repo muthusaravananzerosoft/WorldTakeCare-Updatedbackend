@@ -65,6 +65,7 @@ function makeDeps(): GuideProfileServiceDeps {
       create: vi.fn(),
       setActive: vi.fn(),
       updatePassword: vi.fn(),
+      updateEmail: vi.fn(),
       touchLastLogin: vi.fn(),
     },
     storage: {

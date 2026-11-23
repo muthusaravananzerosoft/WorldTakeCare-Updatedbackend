@@ -51,14 +51,15 @@ export const authController = {
   },
 
   async changePassword(req: Request, res: Response) {
-    const { currentPassword, newPassword } = body<{
+    const { email, currentPassword, newPassword } = body<{
+      email: string;
       currentPassword: string;
       newPassword: string;
     }>(res);
     sendSuccess(
       req,
       res,
-      await authService.changePassword(req.user!.id, currentPassword, newPassword),
+      await authService.changePassword(req.user!.id, email, currentPassword, newPassword),
     );
   },
 

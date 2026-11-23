@@ -47,6 +47,10 @@ function fakeUsers() {
       const row = rows.find((r) => r.id === id);
       if (row) row.passwordHash = hash;
     },
+    async updateEmail(id, email) {
+      const row = rows.find((r) => r.id === id);
+      if (row) row.email = email;
+    },
     async touchLastLogin() {},
   };
   return { users, rows };
@@ -295,7 +299,7 @@ describe('auth service', () => {
     await svc.activate(extractToken(sent[0]!.text));
     const login = await svc.login({ email: REGISTER.email, password: REGISTER.password });
 
-    const res = await svc.changePassword(1, REGISTER.password, 'NewPass123');
+    const res = await svc.changePassword(1, REGISTER.email, REGISTER.password, 'NewPass123');
 
     // new hash stored, old refresh tokens revoked, fresh pair returned
     expect(rows[0]!.passwordHash).toContain('argon2');
@@ -308,6 +312,30 @@ describe('auth service', () => {
     await expect(svc.login({ email: REGISTER.email, password: 'NewPass123' })).resolves.toBeTruthy();
   });
 
+  it('changePassword updates the email alongside the password and rejects a taken one', async () => {
+    const { users, rows } = fakeUsers();
+    const { tokens } = fakeTokens();
+    const { mail, sent } = fakeMail();
+    const svc = createAuthService({ users, tokens, mail });
+
+    await svc.register({ ...REGISTER });
+    await svc.activate(extractToken(sent[0]!.text));
+
+    const res = await svc.changePassword(1, 'new.mail@example.com', REGISTER.password, 'NewPass123');
+    expect(rows[0]!.email).toBe('new.mail@example.com');
+    expect(res.user.email).toBe('new.mail@example.com');
+    await expect(
+      svc.login({ email: 'new.mail@example.com', password: 'NewPass123' }),
+    ).resolves.toBeTruthy();
+
+    // second account exists → email is taken
+    await svc.register({ ...REGISTER, email: 'other@example.com' });
+    await expect(
+      svc.changePassword(1, 'other@example.com', 'NewPass123', 'OtherPass9'),
+    ).rejects.toMatchObject({ statusCode: 409, code: 'EMAIL_TAKEN' });
+    expect(rows[0]!.email).toBe('new.mail@example.com');
+  });
+
   it('changePassword rejects a wrong current password without touching anything', async () => {
     const { users, rows } = fakeUsers();
     const { tokens } = fakeTokens();
@@ -318,7 +346,9 @@ describe('auth service', () => {
     await svc.activate(extractToken(sent[0]!.text));
     const hashBefore = rows[0]!.passwordHash;
 
-    await expect(svc.changePassword(1, 'wrong-pass-1', 'NewPass123')).rejects.toMatchObject({
+    await expect(
+      svc.changePassword(1, REGISTER.email, 'wrong-pass-1', 'NewPass123'),
+    ).rejects.toMatchObject({
       statusCode: 400,
       code: 'INVALID_CREDENTIALS',
     });
@@ -335,7 +365,7 @@ describe('auth service', () => {
     await svc.activate(extractToken(sent[0]!.text));
 
     await expect(
-      svc.changePassword(1, REGISTER.password, REGISTER.password),
+      svc.changePassword(1, REGISTER.email, REGISTER.password, REGISTER.password),
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 });

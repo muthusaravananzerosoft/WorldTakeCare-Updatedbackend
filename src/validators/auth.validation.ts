@@ -74,9 +74,10 @@ export const resetPasswordSchema = z.object({
   password: passwordSchema,
 });
 
-/** Legacy account form: current + new + confirm password. */
+/** Legacy account form: email + current/new/confirm password (username is not editable). */
 export const changePasswordSchema = z
   .object({
+    email: emailSchema,
     currentPassword: z.string().min(1, 'Current password is required'),
     newPassword: passwordSchema,
     confirmPassword: z.string().min(1, 'Confirm password is required'),

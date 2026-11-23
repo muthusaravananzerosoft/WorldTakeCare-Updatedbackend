@@ -24,6 +24,7 @@ export interface UserRepository {
   create(data: CreateUserData): Promise<UserRecord>;
   setActive(id: number): Promise<void>;
   updatePassword(id: number, passwordHash: string): Promise<void>;
+  updateEmail(id: number, email: string): Promise<void>;
   touchLastLogin(id: number): Promise<void>;
 }
 
@@ -135,6 +136,10 @@ export const userRepository: UserRepository = {
       passwordHash,
       id,
     ]);
+  },
+
+  async updateEmail(id, email) {
+    await databaseClient.execute('UPDATE `user` SET email = ? WHERE use_id = ?', [email, id]);
   },
 
   async touchLastLogin(id) {
