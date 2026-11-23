@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ConnectionDetail, ConnectionRecord } from '../src/entities/connection.types.js';
+<<<<<<< HEAD
+=======
+import type { TripRecord } from '../src/entities/trip.types.js';
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
 import type { UserRecord } from '../src/entities/auth.types.js';
 import type { ConnectionRepository } from '../src/repositories/connection.repository.js';
 import type { Page, PageRequest } from '../src/repositories/repository.interface.js';
@@ -7,10 +11,18 @@ import { createConnectionService, type ConnectionServiceDeps } from '../src/serv
 
 const member = { id: 12, role: 'member' as const };
 const guide = { id: 25, role: 'guide' as const };
+<<<<<<< HEAD
+=======
+const stranger = { id: 99, role: 'member' as const };
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
 
 function connectionRecord(overrides: Partial<ConnectionRecord> = {}): ConnectionRecord {
   return {
     id: 1,
+<<<<<<< HEAD
+=======
+    tripId: 101,
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
     memberId: 12,
     guideId: 25,
     requesterUserId: 12,
@@ -28,12 +40,47 @@ function connectionRecord(overrides: Partial<ConnectionRecord> = {}): Connection
 function connectionDetail(overrides: Partial<ConnectionDetail> = {}): ConnectionDetail {
   return {
     ...connectionRecord(),
+<<<<<<< HEAD
+=======
+    tripDestination: { id: 148, name: 'Paris', countryCode: 'FR', countryName: 'France' },
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
     member: { id: 12, firstName: 'Mem', lastName: 'Ber' },
     guide: { id: 25, firstName: 'Gui', lastName: 'De' },
     ...overrides,
   };
 }
 
+<<<<<<< HEAD
+=======
+function tripRecord(overrides: Partial<TripRecord> = {}): TripRecord {
+  return {
+    id: 101,
+    userId: 12,
+    destinationId: 148,
+    startDate: '2026-12-20',
+    endDate: '2026-12-22',
+    tripType: null,
+    interests: [],
+    notes: null,
+    accommodation: null,
+    dietaryPreferences: [],
+    emergencyContactName: null,
+    emergencyContactPhone: null,
+    insuranceProvider: null,
+    insuranceNumber: null,
+    budgetAmount: null,
+    budgetCurrency: null,
+    visibility: 'private',
+    status: 'planned',
+    planMode: 'auto',
+    itinerary: null,
+    createdAt: '2026-11-20T09:00:00.000Z',
+    updatedAt: '2026-11-20T09:00:00.000Z',
+    ...overrides,
+  };
+}
+
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
 function userRecord(overrides: Partial<UserRecord> = {}): UserRecord {
   return {
     id: 25,
@@ -67,6 +114,16 @@ function makeDeps(): ConnectionServiceDeps {
   };
   return {
     connections,
+<<<<<<< HEAD
+=======
+    trips: {
+      create: vi.fn(),
+      findById: vi.fn(async () => tripRecord()),
+      listByUser: vi.fn(async () => []),
+      update: vi.fn(async () => null),
+      delete: vi.fn(async () => false),
+    },
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
     users: {
       findByEmail: vi.fn(async () => null),
       findById: vi.fn(async () => userRecord()),
@@ -84,9 +141,16 @@ describe('connectionService.create — member → guide', () => {
     const deps = makeDeps();
     const svc = createConnectionService(deps);
 
+<<<<<<< HEAD
     const res = await svc.create(member, { guideId: 25 });
 
     expect(deps.connections.create).toHaveBeenCalledWith({
+=======
+    const res = await svc.create(member, { tripId: 101, guideId: 25 });
+
+    expect(deps.connections.create).toHaveBeenCalledWith({
+      tripId: 101,
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
       memberId: 12,
       guideId: 25,
       requesterUserId: 12,
@@ -96,10 +160,55 @@ describe('connectionService.create — member → guide', () => {
     expect(res.status).toBe('pending');
   });
 
+<<<<<<< HEAD
   it('rejects when the sender is not a member', async () => {
     const svc = createConnectionService(makeDeps());
 
     await expect(svc.create(guide, { guideId: 30 })).rejects.toMatchObject({
+=======
+  it('creates without a tripId — stored as NULL', async () => {
+    const deps = makeDeps();
+    vi.mocked(deps.connections.findDetailById).mockResolvedValue(
+      connectionDetail({ tripId: null, tripDestination: null }),
+    );
+    const svc = createConnectionService(deps);
+
+    const res = await svc.create(member, { guideId: 25 });
+
+    expect(deps.connections.create).toHaveBeenCalledWith(
+      expect.objectContaining({ tripId: null, memberId: 12, guideId: 25 }),
+    );
+    expect(deps.trips.findById).not.toHaveBeenCalled();
+    expect(res.tripId).toBeNull();
+    expect(res.tripDestination).toBeNull();
+  });
+
+  it('allows a trip owned by someone else — ownership is not required', async () => {
+    const deps = makeDeps();
+    const svc = createConnectionService(deps);
+
+    await svc.create(stranger, { tripId: 101, guideId: 25 });
+    expect(deps.connections.create).toHaveBeenCalled();
+  });
+
+  it('rejects a provided tripId that does not exist', async () => {
+    const deps = makeDeps();
+    vi.mocked(deps.trips.findById).mockResolvedValue(null);
+    const svc = createConnectionService(deps);
+
+    await expect(svc.create(member, { tripId: 999, guideId: 25 })).rejects.toMatchObject({
+      statusCode: 404,
+    });
+    expect(deps.connections.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the sender is not a member', async () => {
+    const deps = makeDeps();
+    vi.mocked(deps.trips.findById).mockResolvedValue(tripRecord({ userId: 25 }));
+    const svc = createConnectionService(deps);
+
+    await expect(svc.create(guide, { tripId: 101, guideId: 30 })).rejects.toMatchObject({
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
       statusCode: 403,
     });
   });
@@ -109,6 +218,7 @@ describe('connectionService.create — member → guide', () => {
     vi.mocked(deps.users.findById).mockResolvedValue(userRecord({ role: 'member' }));
     const svc = createConnectionService(deps);
 
+<<<<<<< HEAD
     await expect(svc.create(member, { guideId: 30 })).rejects.toMatchObject({
       statusCode: 404,
     });
@@ -120,14 +230,24 @@ describe('connectionService.create — member → guide', () => {
     const svc = createConnectionService(deps);
 
     await expect(svc.create(member, { guideId: 30 })).rejects.toMatchObject({
+=======
+    await expect(svc.create(member, { tripId: 101, guideId: 30 })).rejects.toMatchObject({
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
       statusCode: 404,
     });
   });
 
   it('rejects a self-request', async () => {
+<<<<<<< HEAD
     const svc = createConnectionService(makeDeps());
 
     await expect(svc.create(member, { guideId: 12 })).rejects.toMatchObject({
+=======
+    const deps = makeDeps();
+    const svc = createConnectionService(deps);
+
+    await expect(svc.create(member, { tripId: 101, guideId: 12 })).rejects.toMatchObject({
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
       statusCode: 400,
     });
   });
@@ -139,9 +259,16 @@ describe('connectionService.create — guide → member', () => {
     vi.mocked(deps.users.findById).mockResolvedValue(userRecord({ id: 12, role: 'member' }));
     const svc = createConnectionService(deps);
 
+<<<<<<< HEAD
     await svc.create(guide, { memberId: 12 });
 
     expect(deps.connections.create).toHaveBeenCalledWith({
+=======
+    await svc.create(guide, { tripId: 101, memberId: 12 });
+
+    expect(deps.connections.create).toHaveBeenCalledWith({
+      tripId: 101,
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
       memberId: 12,
       guideId: 25,
       requesterUserId: 25,
@@ -150,6 +277,7 @@ describe('connectionService.create — guide → member', () => {
     });
   });
 
+<<<<<<< HEAD
   it('rejects when the sender is not a guide', async () => {
     const svc = createConnectionService(makeDeps());
     await expect(svc.create(member, { memberId: 40 })).rejects.toMatchObject({
@@ -161,6 +289,34 @@ describe('connectionService.create — guide → member', () => {
     const svc = createConnectionService(makeDeps());
     await expect(svc.create(guide, { memberId: 55 })).rejects.toMatchObject({
       statusCode: 404,
+=======
+  it('creates without a tripId — guide direction, stored as NULL', async () => {
+    const deps = makeDeps();
+    vi.mocked(deps.users.findById).mockResolvedValue(userRecord({ id: 12, role: 'member' }));
+    const svc = createConnectionService(deps);
+
+    await svc.create(guide, { memberId: 12 });
+
+    expect(deps.connections.create).toHaveBeenCalledWith(
+      expect.objectContaining({ tripId: null, memberId: 12, guideId: 25 }),
+    );
+    expect(deps.trips.findById).not.toHaveBeenCalled();
+  });
+
+  it('allows a trip not owned by the member — ownership is not required', async () => {
+    const deps = makeDeps();
+    vi.mocked(deps.users.findById).mockResolvedValue(userRecord({ id: 55, role: 'member' }));
+    const svc = createConnectionService(deps);
+
+    await svc.create(guide, { tripId: 101, memberId: 55 });
+    expect(deps.connections.create).toHaveBeenCalled();
+  });
+
+  it('rejects when the sender is not a guide', async () => {
+    const svc = createConnectionService(makeDeps());
+    await expect(svc.create(member, { tripId: 101, memberId: 40 })).rejects.toMatchObject({
+      statusCode: 403,
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
     });
   });
 });
@@ -171,7 +327,11 @@ describe('connectionService.create — duplicates', () => {
     vi.mocked(deps.connections.findByPair).mockResolvedValue(connectionRecord());
     const svc = createConnectionService(deps);
 
+<<<<<<< HEAD
     await expect(svc.create(member, { guideId: 25 })).rejects.toMatchObject({
+=======
+    await expect(svc.create(member, { tripId: 101, guideId: 25 })).rejects.toMatchObject({
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
       statusCode: 409,
     });
   });
@@ -183,7 +343,11 @@ describe('connectionService.create — duplicates', () => {
     );
     const svc = createConnectionService(deps);
 
+<<<<<<< HEAD
     await expect(svc.create(member, { guideId: 25 })).rejects.toMatchObject({
+=======
+    await expect(svc.create(member, { tripId: 101, guideId: 25 })).rejects.toMatchObject({
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
       statusCode: 409,
     });
   });
@@ -195,7 +359,11 @@ describe('connectionService.create — duplicates', () => {
     );
     const svc = createConnectionService(deps);
 
+<<<<<<< HEAD
     await svc.create(member, { guideId: 25 });
+=======
+    await svc.create(member, { tripId: 101, guideId: 25 });
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
 
     expect(deps.connections.reopen).toHaveBeenCalledWith(1, 12, 25, 'member');
     expect(deps.connections.create).not.toHaveBeenCalled();

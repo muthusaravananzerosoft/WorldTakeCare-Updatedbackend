@@ -26,7 +26,11 @@ export const connectionController = {
     const q = query<ListQuery>(res);
     const result = await connectionService.list(
       req.user!.id,
+<<<<<<< HEAD
       { status: q.status, type: q.type },
+=======
+      { status: q.status, type: q.type, tripId: q.tripId },
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
       { page: q.page, pageSize: q.limit },
     );
     sendSuccess(req, res, result);

@@ -73,6 +73,16 @@ const envSchema = z.object({
   // Local-disk media storage root; objects are served under /uploads/*.
   // Swap the MediaStorage adapter for object storage in production later.
   MEDIA_STORAGE_DIR: z.string().min(1).default('uploads'),
+<<<<<<< HEAD
+=======
+  // Geoapify API key for destination geo-search fallback + tourist
+  // attractions. Optional: without it local search still works and
+  // attraction lookups return empty lists.
+  GEOAPIFY_API_KEY: z.string().min(1).optional(),
+  // Unsplash Access Key for the featured-countries image import (seed
+  // script only — never exposed to the frontend). Keep secret.
+  UNSPLASH_ACCESS_KEY: z.string().min(1).optional(),
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
 });
 
 export type Env = z.infer<typeof envSchema>;

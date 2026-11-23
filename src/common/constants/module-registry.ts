@@ -282,6 +282,33 @@ export const MODULES = [
     legacyTables: ['contact'],
   },
   {
+<<<<<<< HEAD
+=======
+    name: 'destinations',
+    basePath: '/destinations',
+    status: 'implemented',
+    summary:
+      'Worldwide destination search (legacy geo tables + external geo-search fallback) and famous tourist attractions near a destination (Geoapify, cached). New module — no direct legacy equivalent.',
+    legacyFiles: ['get_states.php', 'get_cities.php'],
+    legacyTables: [
+      'countries',
+      'country_states',
+      'country_state_cities',
+      'destinations',
+      'attractions',
+    ],
+  },
+  {
+    name: 'trips',
+    basePath: '/trips',
+    status: 'implemented',
+    summary:
+      'My Trips — authenticated trip CRUD (destination, dates, type, interests, dietary preferences, emergency contact, insurance, budget, visibility) + day-wise JSON itinerary referencing attraction ids. New module — designed for future sharing and AI itinerary features.',
+    legacyFiles: [],
+    legacyTables: ['trips', 'trip_interests', 'trip_dietary_preferences'],
+  },
+  {
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
     name: 'connections',
     basePath: '/connections',
     status: 'implemented',
@@ -300,6 +327,18 @@ export const MODULES = [
     legacyTables: ['guide_profiles'],
   },
   {
+<<<<<<< HEAD
+=======
+    name: 'featured-countries',
+    basePath: '/featured-countries',
+    status: 'implemented',
+    summary:
+      'Top Tourist Countries — curated country cards (landmark image via Unsplash, one-line description, 3 keywords) with admin management under /admin/featured-countries. New module.',
+    legacyFiles: [],
+    legacyTables: ['featured_countries'],
+  },
+  {
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
     name: 'reference-data',
     basePath: '/reference-data',
     status: 'planned',

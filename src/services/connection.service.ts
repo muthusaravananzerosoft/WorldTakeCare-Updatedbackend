@@ -7,6 +7,11 @@ import type {
   CreateConnectionInput,
 } from '../entities/connection.types.js';
 import type { PageRequest } from '../repositories/repository.interface.js';
+<<<<<<< HEAD
+=======
+import type { TripRepository } from '../repositories/trip.repository.js';
+import { tripRepository } from '../repositories/trip.repository.js';
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
 import type { UserRepository } from '../repositories/user.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
 import type { ConnectionRepository } from '../repositories/connection.repository.js';
@@ -14,11 +19,19 @@ import { connectionRepository } from '../repositories/connection.repository.js';
 
 export interface ConnectionServiceDeps {
   connections: ConnectionRepository;
+<<<<<<< HEAD
+=======
+  trips: TripRepository;
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
   users: UserRepository;
 }
 
 export function createConnectionService(deps: ConnectionServiceDeps) {
+<<<<<<< HEAD
   const { connections, users } = deps;
+=======
+  const { connections, trips, users } = deps;
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
 
   const requireDetail = async (id: number): Promise<ConnectionDetail> => {
     const detail = await connections.findDetailById(id);
@@ -37,12 +50,26 @@ export function createConnectionService(deps: ConnectionServiceDeps) {
 
   return {
     /**
+<<<<<<< HEAD
      * Both directions land here. The pair key (member, guide) is
+=======
+     * Both directions land here. The pair key (trip, member, guide) is
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
      * direction-agnostic, so a pending row in EITHER direction blocks a new
      * request. A declined row is re-opened in place — re-requesting after a
      * decline is allowed (documented behavior).
      */
     async create(requester: AuthUser, input: CreateConnectionInput): Promise<ConnectionDetail> {
+<<<<<<< HEAD
+=======
+      // tripId is optional — when given we only check it exists (FK validity);
+      // trip ownership is NOT required to connect member↔guide.
+      if (input.tripId !== undefined) {
+        const trip = await trips.findById(input.tripId);
+        if (!trip) throw AppError.notFound('Trip not found');
+      }
+
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
       let memberId: number;
       let guideId: number;
       let recipientUserId: number;
@@ -77,12 +104,21 @@ export function createConnectionService(deps: ConnectionServiceDeps) {
         requesterRole = 'guide';
       }
 
+<<<<<<< HEAD
       const existing = await connections.findByPair(memberId, guideId);
       if (existing?.status === 'pending') {
         throw AppError.conflict('A pending connection request already exists');
       }
       if (existing?.status === 'accepted') {
         throw AppError.conflict('Member and guide are already connected');
+=======
+      const existing = await connections.findByPair(input.tripId ?? null, memberId, guideId);
+      if (existing?.status === 'pending') {
+        throw AppError.conflict('A pending connection request already exists for this trip');
+      }
+      if (existing?.status === 'accepted') {
+        throw AppError.conflict('Member and guide are already connected for this trip');
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
       }
       if (existing) {
         // Declined → re-open the same row as a fresh pending request.
@@ -91,6 +127,10 @@ export function createConnectionService(deps: ConnectionServiceDeps) {
       }
 
       const created = await connections.create({
+<<<<<<< HEAD
+=======
+        tripId: input.tripId ?? null,
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
         memberId,
         guideId,
         requesterUserId: requester.id,
@@ -138,5 +178,9 @@ export type ConnectionService = ReturnType<typeof createConnectionService>;
 
 export const connectionService = createConnectionService({
   connections: connectionRepository,
+<<<<<<< HEAD
+=======
+  trips: tripRepository,
+>>>>>>> 0109527d6de84cac509d4ead8a7bb60c699937f7
   users: userRepository,
 });
