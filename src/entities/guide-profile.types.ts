@@ -69,6 +69,51 @@ export interface GuideProfilePatchInput {
   website?: string | null | undefined;
 }
 
+// ---------------------------------------------------------------------------
+// Public listing/detail (published guides only)
+// ---------------------------------------------------------------------------
+
+export const GUIDE_SORTS = ['recommended', 'price_asc', 'experience_desc'] as const;
+export type GuideSort = (typeof GUIDE_SORTS)[number];
+
+export interface GuideListFilters {
+  q?: string | undefined;
+  language?: string | undefined;
+  specialty?: string | undefined;
+  maxHourlyRate?: number | undefined;
+  currency?: string | undefined;
+  sort: GuideSort;
+}
+
+/** Public card — no contact phone / private fields. id = the guide's user id. */
+export interface GuidePublicCard {
+  id: number;
+  firstName: string;
+  lastName: string;
+  headline: string | null;
+  baseCity: string | null;
+  countryCode: string | null;
+  countryName: string | null;
+  languages: string[] | null;
+  yearsOfExperience: number | null;
+  specialties: string[] | null;
+  hourlyRate: HourlyRate | null;
+  maxGroupSize: number | null;
+  profileImage: { url: string } | null;
+  coverImage: { url: string } | null;
+  verificationStatus: VerificationStatus;
+  /** Placeholder until the reviews module exists. */
+  rating: number | null;
+  reviewCount: number;
+}
+
+export interface GuidePublicDetail extends GuidePublicCard {
+  bio: string | null;
+  guidingAreas: string[] | null;
+  certificationTitle: string | null;
+  tourPreferences: TourPreferences | null;
+}
+
 /** API response — profile joined with the user's name. */
 export interface GuideProfileResult {
   firstName: string;

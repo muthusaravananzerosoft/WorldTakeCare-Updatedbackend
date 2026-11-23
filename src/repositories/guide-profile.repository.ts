@@ -2,14 +2,17 @@ import type { ResultSetHeader } from 'mysql2/promise';
 import { databaseClient } from '../database/client.js';
 import type { MysqlTransactionContext } from '../database/client.js';
 import type {
+  GuideListFilters,
   GuideProfilePatchInput,
   GuideProfileRecord,
   GuideProfileResult,
+  GuidePublicDetail,
   HourlyRate,
   ProfileStatus,
   TourPreferences,
   VerificationStatus,
 } from '../entities/guide-profile.types.js';
+import type { Page, PageRequest } from './repository.interface.js';
 
 export interface GuideProfileRepository {
   /** Joined profile + user names — null when the guide has no profile yet. */
@@ -24,6 +27,16 @@ export interface GuideProfileRepository {
   setCoverImageUrl(userId: number, url: string | null): Promise<void>;
   /** Sets/clears only profile_image_url, creating the profile row if needed. */
   setProfileImageUrl(userId: number, url: string | null): Promise<void>;
+  /** Backend-controlled status change (e.g. publish). */
+  setProfileStatus(userId: number, status: ProfileStatus): Promise<void>;
+  /**
+   * Public guide cards — published profiles of active guide users only.
+   * Price comparisons are currency-scoped (callers must pass currency when
+   * filtering/sorting by rate).
+   */
+  findPublicPage(filters: GuideListFilters, request: PageRequest): Promise<Page<GuidePublicDetail>>;
+  /** One published, active guide — null for draft/suspended/missing. */
+  findPublicById(userId: number): Promise<GuidePublicDetail | null>;
 }
 
 interface GuideProfileRow {
@@ -50,7 +63,7 @@ interface GuideProfileRow {
   updated_at: Date;
 }
 
-type JoinedRow = GuideProfileRow & { fname: string; lname: string };
+type JoinedRow = GuideProfileRow & { fname: string; lname: string; country_name?: string | null };
 
 const SELECT_COLUMNS = `gp_id, user_id, headline, bio, base_city, country_code,
     guiding_areas, languages, years_of_experience, specialties,
@@ -245,4 +258,138 @@ export const guideProfileRepository: GuideProfileRepository = {
       [userId, url],
     );
   },
+
+  async setProfileStatus(userId, status) {
+    await databaseClient.execute(
+      'UPDATE guide_profiles SET profile_status = ? WHERE user_id = ?',
+      [status, userId],
+    );
+  },
+
+  async findPublicPage(filters, request) {
+    const { where, params } = publicWhere(filters);
+    const orderBy = publicOrderBy(filters.sort);
+
+    const [countRows, rows] = await Promise.all([
+      databaseClient.query<{ total: number }>(
+        `SELECT COUNT(*) AS total ${PUBLIC_FROM} WHERE ${where}`,
+        params,
+      ),
+      databaseClient.query<PublicRow>(
+        `SELECT ${PUBLIC_SELECT} ${PUBLIC_FROM}
+          WHERE ${where}
+          ORDER BY ${orderBy}
+          LIMIT ? OFFSET ?`,
+        [...params, request.pageSize, (request.page - 1) * request.pageSize],
+      ),
+    ]);
+
+    return {
+      items: rows.map(mapPublic),
+      page: request.page,
+      pageSize: request.pageSize,
+      totalItems: Number(countRows[0]?.total ?? 0),
+    };
+  },
+
+  async findPublicById(userId) {
+    const rows = await databaseClient.query<PublicRow>(
+      `SELECT ${PUBLIC_SELECT} ${PUBLIC_FROM}
+        WHERE p.profile_status = 'published' AND u.use_id = ? LIMIT 1`,
+      [userId],
+    );
+    const row = rows[0];
+    return row ? mapPublic(row) : null;
+  },
 };
+
+type PublicRow = GuideProfileRow & {
+  fname: string;
+  lname: string;
+  country_name: string | null;
+};
+
+const PUBLIC_SELECT = `u.use_id AS user_id, u.fname, u.lname, co.name AS country_name,
+    p.gp_id, p.headline, p.bio, p.base_city, p.country_code,
+    p.guiding_areas, p.languages, p.years_of_experience, p.specialties,
+    p.certification_title, p.tour_preferences, p.hourly_rate,
+    p.contact_phone, p.website, p.cover_image_url, p.profile_image_url,
+    p.verification_status, p.profile_status, p.created_at, p.updated_at`;
+
+// Only published profiles of active, non-deleted guide accounts are public.
+const PUBLIC_FROM = `FROM guide_profiles p
+    JOIN \`user\` u ON u.use_id = p.user_id
+       AND u.role = 'guide' AND u.active = 1 AND u.isdel = 0 AND u.suspend = 0
+    LEFT JOIN countries co ON co.code = p.country_code`;
+
+function publicWhere(f: GuideListFilters): { where: string; params: SqlParam[] } {
+  const where: string[] = [`p.profile_status = 'published'`];
+  const params: SqlParam[] = [];
+
+  if (f.q) {
+    const like = `%${f.q}%`;
+    where.push('(u.fname LIKE ? OR u.lname LIKE ? OR p.base_city LIKE ? OR co.name LIKE ?)');
+    params.push(like, like, like, like);
+  }
+  if (f.language) {
+    where.push(`JSON_CONTAINS(p.languages, JSON_QUOTE(?))`);
+    params.push(f.language);
+  }
+  if (f.specialty) {
+    where.push(`JSON_CONTAINS(p.specialties, JSON_QUOTE(?))`);
+    params.push(f.specialty);
+  }
+  // Price comparisons are only valid within one currency — the caller
+  // guarantees currency is present when filtering/sorting by rate.
+  if (f.currency && (f.maxHourlyRate !== undefined || f.sort === 'price_asc')) {
+    where.push(`JSON_UNQUOTE(JSON_EXTRACT(p.hourly_rate, '$.currency')) = ?`);
+    params.push(f.currency);
+  }
+  if (f.maxHourlyRate !== undefined) {
+    where.push(`CAST(JSON_EXTRACT(p.hourly_rate, '$.amount') AS DECIMAL(12,2)) <= ?`);
+    params.push(f.maxHourlyRate);
+  }
+  return { where: where.join(' AND '), params };
+}
+
+/** Stable order — user id is always the final tie-breaker. */
+function publicOrderBy(sort: GuideListFilters['sort']): string {
+  switch (sort) {
+    case 'price_asc':
+      return `CAST(JSON_EXTRACT(p.hourly_rate, '$.amount') AS DECIMAL(12,2)) ASC, u.use_id ASC`;
+    case 'experience_desc':
+      return `p.years_of_experience DESC, u.use_id ASC`;
+    default:
+      // recommended: verified guides first, then most experienced, recently active
+      return `(p.verification_status = 'verified') DESC,
+              p.years_of_experience DESC, p.updated_at DESC, u.use_id ASC`;
+  }
+}
+
+function mapPublic(row: PublicRow): GuidePublicDetail {
+  const p = mapRow(row);
+  const prefs = p.tourPreferences;
+  return {
+    id: p.userId,
+    firstName: row.fname,
+    lastName: row.lname,
+    headline: p.headline,
+    baseCity: p.baseCity,
+    countryCode: p.countryCode,
+    countryName: row.country_name,
+    languages: p.languages,
+    yearsOfExperience: p.yearsOfExperience,
+    specialties: p.specialties,
+    hourlyRate: p.hourlyRate,
+    maxGroupSize: prefs?.maxGroupSize ?? null,
+    profileImage: p.profileImageUrl === null ? null : { url: p.profileImageUrl },
+    coverImage: p.coverImageUrl === null ? null : { url: p.coverImageUrl },
+    verificationStatus: p.verificationStatus,
+    rating: null,
+    reviewCount: 0,
+    bio: p.bio,
+    guidingAreas: p.guidingAreas,
+    certificationTitle: p.certificationTitle,
+    tourPreferences: prefs,
+  };
+}

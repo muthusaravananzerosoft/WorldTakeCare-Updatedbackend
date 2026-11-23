@@ -57,3 +57,9 @@ guideProfileRouter.delete(
   writeLimiter,
   asyncHandler(guideProfileController.deleteProfileImage),
 );
+
+guideProfileRouter.post(
+  '/me/profile/publish',
+  writeLimiter,
+  asyncHandler(guideProfileController.publish),
+);

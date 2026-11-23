@@ -1003,6 +1003,71 @@ export const openApiDocument = {
         },
       },
     },
+    '/guides': {
+      get: {
+        tags: ['guides'],
+        summary: 'Public guide directory — published profiles only',
+        operationId: 'listGuides',
+        parameters: [
+          { name: 'q', in: 'query', schema: { type: 'string', maxLength: 80 }, description: 'Name, city or country search' },
+          { name: 'language', in: 'query', schema: { type: 'string', maxLength: 60 } },
+          { name: 'specialty', in: 'query', schema: { type: 'string', maxLength: 60 } },
+          { name: 'maxHourlyRate', in: 'query', schema: { type: 'number', minimum: 0 }, description: 'Requires currency' },
+          { name: 'currency', in: 'query', schema: { type: 'string', pattern: '^[A-Z]{3}$' } },
+          { name: 'sort', in: 'query', schema: { type: 'string', enum: ['recommended', 'price_asc', 'experience_desc'], default: 'recommended' }, description: 'price_asc requires currency' },
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 12 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Page of published guides',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideListResponse' } },
+            },
+          },
+          '400': { description: 'Invalid filters (e.g. price filter without currency)' },
+        },
+      },
+    },
+    '/guides/{id}': {
+      get: {
+        tags: ['guides'],
+        summary: 'Public guide detail — published only',
+        operationId: 'getGuide',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Public guide detail',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuidePublicResponse' } },
+            },
+          },
+          '404': { description: 'Guide not found, draft or suspended' },
+        },
+      },
+    },
+    '/guides/me/profile/publish': {
+      post: {
+        tags: ['guides'],
+        summary: 'Publish my guide profile — makes it publicly listed',
+        operationId: 'publishGuideProfile',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Published profile',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/GuideProfileResponse' } },
+            },
+          },
+          '400': { description: 'Profile incomplete — details.missing lists required fields' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Not a guide' },
+          '404': { description: 'No profile saved yet' },
+        },
+      },
+    },
     '/health': {
       get: {
         tags: ['health'],
@@ -1753,6 +1818,72 @@ export const openApiDocument = {
                 type: ['object', 'null'],
                 properties: { url: { type: 'string' } },
               },
+            },
+          },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      GuidePublicCard: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', description: "Guide's user id — use in /guides/{id} and connections" },
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
+          headline: { type: ['string', 'null'] },
+          baseCity: { type: ['string', 'null'] },
+          countryCode: { type: ['string', 'null'] },
+          countryName: { type: ['string', 'null'] },
+          languages: { type: ['array', 'null'], items: { type: 'string' } },
+          yearsOfExperience: { type: ['integer', 'null'] },
+          specialties: { type: ['array', 'null'], items: { type: 'string' } },
+          hourlyRate: {
+            type: ['object', 'null'],
+            properties: { amount: { type: 'number' }, currency: { type: 'string' } },
+          },
+          maxGroupSize: { type: ['integer', 'null'] },
+          profileImage: { type: ['object', 'null'], properties: { url: { type: 'string' } } },
+          coverImage: { type: ['object', 'null'], properties: { url: { type: 'string' } } },
+          verificationStatus: { type: 'string', enum: ['unverified', 'pending', 'verified', 'rejected'] },
+          rating: { type: ['number', 'null'], description: 'null until the reviews module exists' },
+          reviewCount: { type: 'integer' },
+        },
+      },
+      GuidePublicDetail: {
+        allOf: [
+          { $ref: '#/components/schemas/GuidePublicCard' },
+          {
+            type: 'object',
+            properties: {
+              bio: { type: ['string', 'null'] },
+              guidingAreas: { type: ['array', 'null'], items: { type: 'string' } },
+              certificationTitle: { type: ['string', 'null'] },
+              tourPreferences: { type: ['object', 'null'] },
+            },
+          },
+        ],
+      },
+      GuidePublicResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: { $ref: '#/components/schemas/GuidePublicDetail' },
+          meta: { $ref: '#/components/schemas/ResponseMeta' },
+        },
+      },
+      GuideListResponse: {
+        type: 'object',
+        required: ['success', 'data', 'meta'],
+        properties: {
+          success: { type: 'boolean', const: true },
+          data: {
+            type: 'object',
+            properties: {
+              guides: { type: 'array', items: { $ref: '#/components/schemas/GuidePublicCard' } },
+              page: { type: 'integer' },
+              limit: { type: 'integer' },
+              total: { type: 'integer' },
+              totalPages: { type: 'integer' },
             },
           },
           meta: { $ref: '#/components/schemas/ResponseMeta' },

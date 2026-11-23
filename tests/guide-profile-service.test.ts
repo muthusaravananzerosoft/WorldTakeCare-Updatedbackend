@@ -41,6 +41,14 @@ function makeDeps(): GuideProfileServiceDeps {
       ),
       setCoverImageUrl: vi.fn(async () => undefined),
       setProfileImageUrl: vi.fn(async () => undefined),
+      setProfileStatus: vi.fn(async () => undefined),
+      findPublicPage: vi.fn(async (_f, r) => ({
+        items: [],
+        page: r.page,
+        pageSize: r.pageSize,
+        totalItems: 0,
+      })),
+      findPublicById: vi.fn(async () => null),
     },
     users: {
       findByEmail: vi.fn(async () => null),
@@ -205,6 +213,89 @@ describe('guideProfileService.deleteCover', () => {
     expect(res.coverImage).toBeNull();
     expect(deps.profiles.setCoverImageUrl).toHaveBeenCalledWith(25, null);
     expect(deps.storage.delete).toHaveBeenCalledWith('guide-covers/25/x.webp');
+  });
+});
+
+describe('guideProfileService.listPublic / getPublicById', () => {
+  it('returns an empty page when nothing matches', async () => {
+    const svc = createGuideProfileService(makeDeps());
+    const res = await svc.listPublic({ sort: 'recommended' }, { page: 1, pageSize: 12 });
+    expect(res).toEqual({ guides: [], page: 1, limit: 12, total: 0, totalPages: 0 });
+  });
+
+  it('404s on a draft/suspended/missing guide', async () => {
+    const svc = createGuideProfileService(makeDeps());
+    await expect(svc.getPublicById(25)).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('returns the published guide detail', async () => {
+    const deps = makeDeps();
+    vi.mocked(deps.profiles.findPublicById).mockResolvedValue({
+      id: 25,
+      firstName: 'Made',
+      lastName: 'Wardana',
+      headline: 'Guide',
+      baseCity: 'Ubud',
+      countryCode: 'ID',
+      countryName: 'Indonesia',
+      languages: ['English'],
+      yearsOfExperience: 5,
+      specialties: ['Culture'],
+      hourlyRate: { amount: 25, currency: 'USD' },
+      maxGroupSize: 8,
+      profileImage: null,
+      coverImage: null,
+      verificationStatus: 'unverified',
+      rating: null,
+      reviewCount: 0,
+      bio: 'bio',
+      guidingAreas: ['Ubud'],
+      certificationTitle: 'Cert',
+      tourPreferences: { privateTours: true },
+    });
+    const svc = createGuideProfileService(deps);
+    const res = await svc.getPublicById(25);
+    expect(res.id).toBe(25);
+    expect(res.rating).toBeNull();
+    expect(res.reviewCount).toBe(0);
+  });
+});
+
+describe('guideProfileService.publish', () => {
+  it('404s when no profile exists', async () => {
+    const deps = makeDeps();
+    vi.mocked(deps.profiles.findByUserId).mockResolvedValue(null);
+    const svc = createGuideProfileService(deps);
+    await expect(svc.publish(25)).rejects.toMatchObject({ statusCode: 404 });
+    expect(deps.profiles.setProfileStatus).not.toHaveBeenCalled();
+  });
+
+  it('rejects publishing an incomplete profile with the missing list', async () => {
+    const deps = makeDeps();
+    vi.mocked(deps.profiles.findByUserId).mockResolvedValue(
+      profileResult({ bio: null, languages: null, profileImage: null }),
+    );
+    const svc = createGuideProfileService(deps);
+    await expect(svc.publish(25)).rejects.toMatchObject({
+      statusCode: 400,
+      details: { missing: expect.arrayContaining(['bio', 'languages', 'profileImage']) },
+    });
+    expect(deps.profiles.setProfileStatus).not.toHaveBeenCalled();
+  });
+
+  it('publishes a complete profile and returns it', async () => {
+    const deps = makeDeps();
+    const complete = profileResult({
+      profileImage: { url: 'http://localhost:4000/uploads/guide-photos/25/x.png' },
+    });
+    vi.mocked(deps.profiles.findByUserId)
+      .mockResolvedValueOnce(complete)
+      .mockResolvedValueOnce({ ...complete, profileStatus: 'published' });
+    const svc = createGuideProfileService(deps);
+
+    const res = await svc.publish(25);
+    expect(deps.profiles.setProfileStatus).toHaveBeenCalledWith(25, 'published');
+    expect(res.profileStatus).toBe('published');
   });
 });
 

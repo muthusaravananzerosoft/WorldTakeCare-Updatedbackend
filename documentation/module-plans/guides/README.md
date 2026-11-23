@@ -21,6 +21,30 @@ All require JWT + `guide` role. Identity comes from `req.user` only.
 | DELETE | `/api/v1/guides/me/profile/cover`   | Remove cover (`coverImage: null`) |
 | POST   | `/api/v1/guides/me/profile/photo`   | Upload profile photo (same rules) — `profileImage` |
 | DELETE | `/api/v1/guides/me/profile/photo`   | Remove profile photo (`profileImage: null`) |
+| POST   | `/api/v1/guides/me/profile/publish` | Publish — requires complete profile (below) |
+
+## Public directory (no auth)
+
+| Method | Path                                  | Description                        |
+| ------ | ------------------------------------- | ---------------------------------- |
+| GET    | `/api/v1/guides`                      | Published guides — `q`, `language`, `specialty`, `maxHourlyRate`+`currency`, `sort`, `page`, `limit` (default 12) |
+| GET    | `/api/v1/guides/:id`                  | Published guide detail — 404 for draft/suspended |
+
+- Card `id` = the guide's **user id** (same id used in `/connections`).
+- Price filtering and `sort=price_asc` **require `currency`** — different
+  currencies are never compared; non-matching guides are excluded.
+- `recommended` = verified first → experience → recently updated; `id` is
+  the stable tie-breaker everywhere.
+- `rating: null`, `reviewCount: 0` until the reviews module exists.
+- Detail never exposes `contactPhone`, email or other private fields.
+
+## Publishing
+
+`POST /me/profile/publish` flips `profile_status` to `published` only when
+the profile is complete — required: `headline`, `bio`, `baseCity`,
+`countryCode`, ≥1 `languages`, ≥1 `specialties`, `yearsOfExperience`,
+`profileImage`. Missing fields → `400` with `details.missing`.
+`verificationStatus` is NOT changed by publishing.
 
 ## Patch semantics
 

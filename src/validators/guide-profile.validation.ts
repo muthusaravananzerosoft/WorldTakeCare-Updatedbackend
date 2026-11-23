@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GUIDE_SORTS } from '../entities/guide-profile.types.js';
 
 const trimmed = (min: number, max: number) => z.string().trim().min(min).max(max);
 
@@ -61,4 +62,36 @@ export const updateGuideProfileBodySchema = z.strictObject({
     .nullable()
     .optional(),
   website: z.url().max(500).nullable().optional(),
+});
+
+const currencyCode = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z]{3}$/, 'Expected a 3-letter ISO currency code')
+  .toUpperCase();
+
+/**
+ * GET /guides — public listing. Price filtering/sorting requires a currency
+ * so amounts in different currencies are never compared.
+ */
+export const listGuidesQuerySchema = z
+  .object({
+    q: z.string().trim().min(1).max(80).optional(),
+    language: trimmed(1, 60).optional(),
+    specialty: trimmed(1, 60).optional(),
+    maxHourlyRate: z.coerce.number().min(0).optional(),
+    currency: currencyCode.optional(),
+    sort: z.enum(GUIDE_SORTS).default('recommended'),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(12),
+  })
+  .refine((v) => !(v.maxHourlyRate !== undefined && v.currency === undefined), {
+    message: 'currency is required when filtering by maxHourlyRate',
+  })
+  .refine((v) => !(v.sort === 'price_asc' && v.currency === undefined), {
+    message: 'currency is required for price_asc sorting',
+  });
+
+export const guideIdParamSchema = z.object({
+  id: z.coerce.number().int().positive('Guide id must be a positive integer'),
 });

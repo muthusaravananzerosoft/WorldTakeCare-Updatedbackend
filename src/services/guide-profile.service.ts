@@ -3,9 +3,12 @@ import { AppError } from '../common/errors/app-error.js';
 import { ERROR_CODES } from '../common/constants/error-codes.constants.js';
 import { HTTP_STATUS } from '../common/constants/http-status.constants.js';
 import type {
+  GuideListFilters,
   GuideProfilePatchInput,
   GuideProfileResult,
+  GuidePublicDetail,
 } from '../entities/guide-profile.types.js';
+import type { PageRequest } from '../repositories/repository.interface.js';
 import { keyFromStoredUrl } from '../integrations/storage/local-disk-storage.js';
 import { localDiskStorage } from '../integrations/storage/local-disk-storage.js';
 import type { MediaStorage } from '../integrations/storage/media-storage.interface.js';
@@ -36,6 +39,20 @@ const MAGIC: { mime: string; ext: string; test: (b: Buffer) => boolean }[] = [
 ];
 
 const IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+
+/** Fields a profile must complete before it can go public. */
+function missingPublishFields(p: GuideProfileResult): string[] {
+  const missing: string[] = [];
+  if (!p.headline) missing.push('headline');
+  if (!p.bio) missing.push('bio');
+  if (!p.baseCity) missing.push('baseCity');
+  if (!p.countryCode) missing.push('countryCode');
+  if (!p.languages || p.languages.length === 0) missing.push('languages');
+  if (!p.specialties || p.specialties.length === 0) missing.push('specialties');
+  if (p.yearsOfExperience === null) missing.push('yearsOfExperience');
+  if (!p.profileImage) missing.push('profileImage');
+  return missing;
+}
 
 /** Persisted image columns — cover and profile photo share the same pipeline. */
 type ImageKind = 'cover' | 'profile';
@@ -146,6 +163,45 @@ export function createGuideProfileService(deps: GuideProfileServiceDeps) {
     async deleteProfileImage(userId: number) {
       await removeImage(userId, 'profile');
       return { profileImage: null };
+    },
+
+    /** Public listing — published, active guides only. */
+    async listPublic(filters: GuideListFilters, request: PageRequest) {
+      const page = await profiles.findPublicPage(filters, request);
+      return {
+        guides: page.items,
+        page: page.page,
+        limit: page.pageSize,
+        total: page.totalItems,
+        totalPages: Math.ceil(page.totalItems / page.pageSize),
+      };
+    },
+
+    /** Public detail — 404 for missing, draft, suspended or non-guide rows. */
+    async getPublicById(userId: number): Promise<GuidePublicDetail> {
+      const guide = await profiles.findPublicById(userId);
+      if (!guide) throw AppError.notFound('Guide not found');
+      return guide;
+    },
+
+    /**
+     * Publish own profile. Completeness is enforced before flipping the
+     * status; verificationStatus stays backend-managed (unchanged here).
+     * Idempotent — re-publishing an already public profile just returns it.
+     */
+    async publish(userId: number): Promise<GuideProfileResult> {
+      const profile = await profiles.findByUserId(userId);
+      if (!profile) throw AppError.notFound('Profile not found — save your profile first');
+
+      const missing = missingPublishFields(profile);
+      if (missing.length > 0) {
+        throw AppError.badRequest('Complete your profile before publishing', { missing });
+      }
+
+      await profiles.setProfileStatus(userId, 'published');
+      const updated = await profiles.findByUserId(userId);
+      if (!updated) throw AppError.notFound('Profile not found');
+      return updated;
     },
   };
 }
