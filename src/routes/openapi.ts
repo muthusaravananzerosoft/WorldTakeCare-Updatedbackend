@@ -230,6 +230,78 @@ export const openApiDocument = {
         },
       },
     },
+    '/users/me/profile': {
+      get: {
+        tags: ['users'],
+        summary:
+          'Own member profile — personal details, primary/secondary locations, visited and visiting countries with resolved names + computed age.',
+        operationId: 'getMyProfile',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Complete member profile',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ProfileResponse' } },
+            },
+          },
+          '401': { description: 'Missing or invalid access token' },
+          '404': { description: 'User not found' },
+        },
+      },
+      put: {
+        tags: ['users'],
+        summary:
+          'Save the whole member profile in one call (legacy account page). Only the `personal` section is required; location/visited/visiting sections replace their stored values when present.',
+        operationId: 'updateMyProfile',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/UpdateProfileRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Saved profile echoed back',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ProfileResponse' } },
+            },
+          },
+          '400': { description: 'Validation failed, unknown references or state↔country mismatch' },
+          '401': { description: 'Missing or invalid access token' },
+        },
+      },
+    },
+    '/reference/options': {
+      get: {
+        tags: ['reference-data'],
+        summary:
+          'Dropdown options for profile/registration forms: countries, races, heights, educations, religions, marital statuses, sex, traits, looking-to-meet.',
+        operationId: 'referenceOptions',
+        responses: {
+          '200': { description: 'All option lists' },
+        },
+      },
+    },
+    '/reference/countries/{code}/states': {
+      get: {
+        tags: ['reference-data'],
+        summary: 'States/provinces of one country (ISO alpha-2 code) for cascading selects.',
+        operationId: 'countryStates',
+        parameters: [
+          {
+            name: 'code',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', minLength: 2, maxLength: 2, example: 'US' },
+          },
+        ],
+        responses: {
+          '200': { description: 'Country plus its states' },
+          '400': { description: 'Unknown country code' },
+        },
+      },
+    },
     '/posts': {
       get: {
         tags: ['posts'],
@@ -816,6 +888,79 @@ export const openApiDocument = {
           newPassword: { type: 'string', minLength: 8, maxLength: 72 },
           confirmPassword: { type: 'string', minLength: 1, description: 'Must equal newPassword' },
         },
+      },
+      LocationInput: {
+        type: 'object',
+        properties: {
+          countryCode: { type: 'string', minLength: 2, maxLength: 2, nullable: true, example: 'US' },
+          stateId: { type: 'integer', nullable: true, description: 'country_states.sta_id — must belong to the country' },
+          city: { type: 'string', maxLength: 500, nullable: true },
+          zip: { type: 'string', maxLength: 10, nullable: true },
+          timezone: { type: 'string', maxLength: 50, nullable: true },
+        },
+      },
+      PersonalInput: {
+        type: 'object',
+        required: ['firstName', 'lastName'],
+        properties: {
+          firstName: { type: 'string', minLength: 2, maxLength: 30 },
+          lastName: { type: 'string', minLength: 2, maxLength: 30 },
+          sex: { type: 'string', enum: ['male', 'female'], nullable: true },
+          dob: { type: 'string', format: 'date', nullable: true, description: 'YYYY-MM-DD, 18+ only' },
+          countryOfBirth: { type: 'string', minLength: 2, maxLength: 2, nullable: true },
+          raceId: { type: 'integer', nullable: true },
+          religionId: { type: 'integer', minimum: 1, maximum: 7, nullable: true, description: '7 = Other → otherReligion required' },
+          otherReligion: { type: 'string', maxLength: 200, nullable: true },
+          heightId: { type: 'integer', nullable: true },
+          maritalStatus: {
+            type: 'string',
+            enum: ['available', 'seeing_someone', 'complicated', 'single', 'married', 'separated', 'divorced', 'widowed', 'offline'],
+          },
+          educationId: { type: 'integer', nullable: true },
+          languages: { type: 'string', maxLength: 500, nullable: true },
+          traits: { type: 'array', items: { type: 'string', enum: ['non_smoker', 'vegetarian', 'tourist_guide'] } },
+          nationalities: { type: 'array', maxItems: 5, items: { type: 'string', minLength: 2, maxLength: 2 } },
+          lookingToMeet: { type: 'string', enum: ['man', 'woman', 'man_or_woman', 'other'], nullable: true },
+          lookingToMeetOther: { type: 'string', maxLength: 50, nullable: true, description: "Required when lookingToMeet = 'other'" },
+          writeSomething: { type: 'string', nullable: true },
+          about: { type: 'string', nullable: true },
+        },
+      },
+      UpdateProfileRequest: {
+        type: 'object',
+        required: ['personal'],
+        properties: {
+          personal: { $ref: '#/components/schemas/PersonalInput' },
+          location: {
+            type: 'object',
+            properties: {
+              primary: { $ref: '#/components/schemas/LocationInput' },
+              secondary: { $ref: '#/components/schemas/LocationInput' },
+            },
+          },
+          visitedCountries: {
+            type: 'array',
+            description: 'Full replacement of the visited list',
+            items: {
+              type: 'object',
+              required: ['countryCode', 'stateIds'],
+              properties: {
+                countryCode: { type: 'string', minLength: 2, maxLength: 2 },
+                stateIds: { type: 'array', items: { type: 'integer' } },
+              },
+            },
+          },
+          visitingCountries: {
+            type: 'array',
+            maxItems: 2,
+            description: 'Up to two ISO country codes; [] clears the selection',
+            items: { type: 'string', minLength: 2, maxLength: 2 },
+          },
+        },
+      },
+      ProfileResponse: {
+        type: 'object',
+        description: 'Saved member profile with resolved names and computed age',
       },
       AuthResponse: {
         type: 'object',
