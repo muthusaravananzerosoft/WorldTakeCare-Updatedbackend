@@ -17,4 +17,12 @@ export const profileController = {
       await profileService.updateProfile(req.user!.id, body<UpdateProfileInput>(res)),
     );
   },
+
+  async uploadPhoto(req: Request, res: Response) {
+    sendSuccess(req, res, await profileService.uploadPhoto(req.user!.id, req.file));
+  },
+
+  async deletePhoto(req: Request, res: Response) {
+    sendSuccess(req, res, await profileService.deletePhoto(req.user!.id));
+  },
 };

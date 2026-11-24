@@ -59,7 +59,7 @@ export const MODULES = [
     basePath: '/users',
     status: 'implemented',
     summary:
-      'Own account settings (email + password via /auth/change-password) and the full member profile — personal details, primary/secondary locations, visited countries and currently visiting countries — under GET/PUT /users/me/profile.',
+      'Own account settings (email + password via /auth/change-password) and the full member profile — personal details, primary/secondary locations, visited countries, currently visiting countries and the profile photo (POST/DELETE /users/me/profile/photo → user.profile_img) — under GET/PUT /users/me/profile.',
     legacyFiles: [
       'user-save.php?q=account|profile|location',
       'include/user-account.php',

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CountryRef } from '../src/entities/profile.types.js';
+import type { MediaStorage } from '../src/integrations/storage/media-storage.interface.js';
 import type {
   ProfileRepository,
   ProfileUserRow,
@@ -21,6 +22,7 @@ function baseRow(overrides: Partial<ProfileUserRow> = {}): ProfileUserRow {
   return {
     fname: 'Muthu',
     lname: 'G',
+    profile_img: null,
     sex: 1,
     dob: 631152000, // 1990-01-01 UTC
     marital_status: 1,
@@ -82,8 +84,24 @@ function fakeProfiles(row: ProfileUserRow | null = baseRow()) {
       c2_name: 'Canada',
     })),
     saveProfile: vi.fn(async (_id: number, w: ProfileWrite) => void writes.push(w)),
+    setProfileImage: vi.fn(async () => undefined),
   };
   return { profiles, writes };
+}
+
+function fakeStorage() {
+  const deleted: string[] = [];
+  const storage: MediaStorage = {
+    put: vi.fn(async (key: string, data: Buffer, contentType: string) => ({
+      key,
+      url: `https://api.test/uploads/${key}`,
+      contentType,
+      sizeBytes: data.length,
+    })),
+    delete: vi.fn(async (key: string) => void deleted.push(key)),
+    getUrl: vi.fn((key: string) => `https://api.test/uploads/${key}`),
+  };
+  return { storage, deleted };
 }
 
 function fakeReference() {
@@ -115,7 +133,7 @@ function fakeReference() {
 describe('profile service', () => {
   it('returns the assembled profile with resolved names, age and selections', async () => {
     const { profiles } = fakeProfiles();
-    const svc = createProfileService({ profiles, reference: fakeReference() });
+    const svc = createProfileService({ profiles, reference: fakeReference(), storage: fakeStorage().storage });
 
     const { profile } = await svc.getProfile(861);
 
@@ -144,17 +162,18 @@ describe('profile service', () => {
     expect(profile.visitedCountries[1]!.states).toEqual([]);
 
     expect(profile.visitingCountries.map((c) => c.code)).toEqual(['IN', 'CA']);
+    expect(profile.profileImage).toBeNull();
   });
 
   it('404s when the user does not exist', async () => {
     const { profiles } = fakeProfiles(null);
-    const svc = createProfileService({ profiles, reference: fakeReference() });
+    const svc = createProfileService({ profiles, reference: fakeReference(), storage: fakeStorage().storage });
     await expect(svc.getProfile(999)).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it('maps the PUT body to legacy columns inside one saveProfile call', async () => {
     const { profiles, writes } = fakeProfiles();
-    const svc = createProfileService({ profiles, reference: fakeReference() });
+    const svc = createProfileService({ profiles, reference: fakeReference(), storage: fakeStorage().storage });
 
     await svc.updateProfile(861, {
       personal: {
@@ -219,7 +238,7 @@ describe('profile service', () => {
 
   it('stores free text for lookingToMeet=other and leaves absent sections untouched', async () => {
     const { profiles, writes } = fakeProfiles();
-    const svc = createProfileService({ profiles, reference: fakeReference() });
+    const svc = createProfileService({ profiles, reference: fakeReference(), storage: fakeStorage().storage });
 
     await svc.updateProfile(861, {
       personal: {
@@ -244,7 +263,7 @@ describe('profile service', () => {
 
   it('rejects an unknown country code', async () => {
     const { profiles } = fakeProfiles();
-    const svc = createProfileService({ profiles, reference: fakeReference() });
+    const svc = createProfileService({ profiles, reference: fakeReference(), storage: fakeStorage().storage });
     await expect(
       svc.updateProfile(861, {
         personal: { firstName: 'A', lastName: 'B', countryOfBirth: 'ZZ' },
@@ -254,7 +273,7 @@ describe('profile service', () => {
 
   it('rejects a state that does not belong to the visited country', async () => {
     const { profiles } = fakeProfiles();
-    const svc = createProfileService({ profiles, reference: fakeReference() });
+    const svc = createProfileService({ profiles, reference: fakeReference(), storage: fakeStorage().storage });
     await expect(
       svc.updateProfile(861, {
         personal: { firstName: 'A', lastName: 'B' },
@@ -265,7 +284,7 @@ describe('profile service', () => {
 
   it('rejects duplicate countries and unknown race/height/education ids', async () => {
     const { profiles } = fakeProfiles();
-    const svc = createProfileService({ profiles, reference: fakeReference() });
+    const svc = createProfileService({ profiles, reference: fakeReference(), storage: fakeStorage().storage });
 
     await expect(
       svc.updateProfile(861, {
@@ -280,5 +299,57 @@ describe('profile service', () => {
     await expect(
       svc.updateProfile(861, { personal: { firstName: 'A', lastName: 'B', raceId: 99 } }),
     ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('uploads a profile photo, stores the URL and removes the old file', async () => {
+    const oldUrl = 'https://api.test/uploads/member-photos/861/old.jpg';
+    const { profiles } = fakeProfiles(baseRow({ profile_img: oldUrl }));
+    const { storage, deleted } = fakeStorage();
+    const svc = createProfileService({ profiles, reference: fakeReference(), storage });
+
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(64),
+    ]);
+    const file = { mimetype: 'image/png', buffer: png, size: png.length } as Express.Multer.File;
+
+    const result = await svc.uploadPhoto(861, file);
+
+    expect(result.profileImage).toMatch(
+      /^https:\/\/api\.test\/uploads\/member-photos\/861\/.+\.png$/,
+    );
+    expect(profiles.setProfileImage).toHaveBeenCalledWith(861, result.profileImage);
+    expect(deleted).toEqual(['member-photos/861/old.jpg']);
+  });
+
+  it('deletes the profile photo and clears the column', async () => {
+    const url = 'https://api.test/uploads/member-photos/861/pic.jpg';
+    const { profiles } = fakeProfiles(baseRow({ profile_img: url }));
+    const { storage, deleted } = fakeStorage();
+    const svc = createProfileService({ profiles, reference: fakeReference(), storage });
+
+    const result = await svc.deletePhoto(861);
+
+    expect(result.profileImage).toBeNull();
+    expect(profiles.setProfileImage).toHaveBeenCalledWith(861, null);
+    expect(deleted).toEqual(['member-photos/861/pic.jpg']);
+  });
+
+  it('rejects photo upload without a file or with a fake signature', async () => {
+    const { profiles } = fakeProfiles();
+    const svc = createProfileService({
+      profiles,
+      reference: fakeReference(),
+      storage: fakeStorage().storage,
+    });
+
+    await expect(svc.uploadPhoto(861, undefined)).rejects.toMatchObject({ statusCode: 400 });
+
+    const fake = {
+      mimetype: 'image/png',
+      buffer: Buffer.from('not an image at all'),
+      size: 20,
+    } as Express.Multer.File;
+    await expect(svc.uploadPhoto(861, fake)).rejects.toMatchObject({ statusCode: 415 });
   });
 });

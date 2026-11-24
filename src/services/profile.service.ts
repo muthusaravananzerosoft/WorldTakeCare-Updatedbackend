@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { AppError } from '../common/errors/app-error.js';
 import {
   LOOKING_TO_MEET_OPTIONS,
@@ -20,6 +21,10 @@ import type {
   UpdateProfileInput,
   VisitedCountry,
 } from '../entities/profile.types.js';
+import { validateImageUpload } from '../integrations/storage/image-validation.js';
+import { keyFromStoredUrl } from '../integrations/storage/local-disk-storage.js';
+import { localDiskStorage } from '../integrations/storage/local-disk-storage.js';
+import type { MediaStorage } from '../integrations/storage/media-storage.interface.js';
 import type { ProfileRepository } from '../repositories/profile.repository.js';
 import { profileRepository } from '../repositories/profile.repository.js';
 import type { ReferenceRepository } from '../repositories/reference.repository.js';
@@ -28,6 +33,7 @@ import { referenceRepository } from '../repositories/reference.repository.js';
 export interface ProfileServiceDeps {
   profiles: ProfileRepository;
   reference: ReferenceRepository;
+  storage: MediaStorage;
 }
 
 // ---- row → API mapping ------------------------------------------------------
@@ -99,7 +105,7 @@ function mapTraits(csv: string | null): ProfileTrait[] {
 const NULLABLE_NUMBER = ['raceId', 'religionId', 'heightId', 'educationId'] as const;
 
 export function createProfileService(deps: ProfileServiceDeps) {
-  const { profiles, reference } = deps;
+  const { profiles, reference, storage } = deps;
 
   async function assembleProfile(userId: number): Promise<MemberProfile> {
     const row = await profiles.findProfileRow(userId);
@@ -138,6 +144,7 @@ export function createProfileService(deps: ProfileServiceDeps) {
     }
 
     return {
+      profileImage: row.profile_img || null,
       personal: {
         firstName: row.fname,
         lastName: row.lname,
@@ -419,6 +426,35 @@ export function createProfileService(deps: ProfileServiceDeps) {
       await profiles.saveProfile(userId, { columns, visited, visiting });
       return { message: 'Profile updated', profile: await assembleProfile(userId) };
     },
+
+    /**
+     * Member profile photo (user.profile_img). Upload-then-swap: the new file
+     * is stored and the column updated before the old file is removed.
+     */
+    async uploadPhoto(userId: number, file: Express.Multer.File | undefined) {
+      const { file: image, ...type } = validateImageUpload(file);
+      const row = await profiles.findProfileRow(userId);
+      if (!row) throw AppError.notFound('User not found');
+      const oldKey = keyFromStoredUrl(row.profile_img);
+
+      const key = `member-photos/${userId}/${randomUUID()}.${type.ext}`;
+      const stored = await storage.put(key, image.buffer, type.mime);
+      await profiles.setProfileImage(userId, stored.url);
+      if (oldKey) await storage.delete(oldKey).catch(() => undefined);
+
+      return { message: 'Profile photo updated', profileImage: stored.url };
+    },
+
+    async deletePhoto(userId: number) {
+      const row = await profiles.findProfileRow(userId);
+      if (!row) throw AppError.notFound('User not found');
+      const key = keyFromStoredUrl(row.profile_img);
+
+      await profiles.setProfileImage(userId, null);
+      if (key) await storage.delete(key).catch(() => undefined);
+
+      return { message: 'Profile photo removed', profileImage: null };
+    },
   };
 }
 
@@ -427,4 +463,5 @@ export type ProfileService = ReturnType<typeof createProfileService>;
 export const profileService = createProfileService({
   profiles: profileRepository,
   reference: referenceRepository,
+  storage: localDiskStorage,
 });

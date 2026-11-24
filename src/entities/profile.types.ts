@@ -127,6 +127,8 @@ export interface VisitedCountry {
 }
 
 export interface MemberProfile {
+  /** Absolute URL of the member's profile photo (user.profile_img). */
+  profileImage: string | null;
   personal: PersonalProfile;
   location: {
     primary: LocationProfile;

@@ -272,6 +272,63 @@ export const openApiDocument = {
         },
       },
     },
+    '/users/me/profile/photo': {
+      post: {
+        tags: ['users'],
+        summary:
+          'Upload or replace the member profile photo (user.profile_img). Multipart field `file`; JPG/PNG/WebP, max 2 MB, real signature checked.',
+        operationId: 'uploadMyProfilePhoto',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file'],
+                properties: { file: { type: 'string', format: 'binary' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Photo stored — returns the public URL',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', const: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        message: { type: 'string', example: 'Profile photo updated' },
+                        profileImage: { type: 'string', format: 'uri' },
+                      },
+                    },
+                    meta: { $ref: '#/components/schemas/ResponseMeta' },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Missing file or image over 2 MB' },
+          '401': { description: 'Missing or invalid access token' },
+          '415': { description: 'File is not a valid JPG/PNG/WebP image' },
+        },
+      },
+      delete: {
+        tags: ['users'],
+        summary: 'Remove the member profile photo (clears user.profile_img and deletes the file).',
+        operationId: 'deleteMyProfilePhoto',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': { description: 'Photo removed; profileImage is null' },
+          '401': { description: 'Missing or invalid access token' },
+        },
+      },
+    },
     '/reference/options': {
       get: {
         tags: ['reference-data'],
