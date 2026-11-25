@@ -329,6 +329,27 @@ export const openApiDocument = {
         },
       },
     },
+    '/users/newest': {
+      get: {
+        tags: ['users'],
+        summary:
+          'Newest members for the public homepage — active, non-suspended members only (guides and admins excluded), ordered by registration date.',
+        operationId: 'newestMembers',
+        parameters: [
+          {
+            name: 'limit',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, maximum: 50, default: 15 },
+          },
+        ],
+        responses: {
+          '200': {
+            description:
+              'Newest member cards: id, username, first/last name, sex, age, country, profileImage, online',
+          },
+        },
+      },
+    },
     '/reference/options': {
       get: {
         tags: ['reference-data'],

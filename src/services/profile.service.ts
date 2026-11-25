@@ -15,9 +15,11 @@ import type {
   CountryRef,
   LocationInput,
   LocationProfile,
+  MemberListItem,
   MemberProfile,
   PersonalInput,
   ProfileTrait,
+  SexValue,
   UpdateProfileInput,
   VisitedCountry,
 } from '../entities/profile.types.js';
@@ -454,6 +456,25 @@ export function createProfileService(deps: ProfileServiceDeps) {
       if (key) await storage.delete(key).catch(() => undefined);
 
       return { message: 'Profile photo removed', profileImage: null };
+    },
+
+    /** Public homepage list — newest active members (guides/admins excluded). */
+    async newestMembers(limit: number) {
+      const rows = await profiles.findNewestMembers(limit);
+      const members: MemberListItem[] = rows.map((r) => ({
+        id: Number(r.use_id),
+        username: r.username || null,
+        firstName: r.fname,
+        lastName: r.lname,
+        sex: sexValue(r.sex) as SexValue | null,
+        age: calcAge(r.dob),
+        country: r.con_id
+          ? { id: Number(r.con_id), code: r.con_code, name: r.con_name ?? '' }
+          : null,
+        profileImage: r.profile_img || null,
+        online: Boolean(r.online),
+      }));
+      return { members };
     },
   };
 }

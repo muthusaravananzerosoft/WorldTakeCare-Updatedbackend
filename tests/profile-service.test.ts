@@ -85,6 +85,34 @@ function fakeProfiles(row: ProfileUserRow | null = baseRow()) {
     })),
     saveProfile: vi.fn(async (_id: number, w: ProfileWrite) => void writes.push(w)),
     setProfileImage: vi.fn(async () => undefined),
+    findNewestMembers: vi.fn(async () => [
+      {
+        use_id: 864,
+        username: 'arun_k',
+        fname: 'Arun',
+        lname: 'Kumar',
+        profile_img: 'https://api.test/uploads/member-photos/864/pic.png',
+        sex: 1,
+        dob: 631152000, // 1990-01-01 UTC
+        con_id: 102,
+        con_code: 'IN',
+        con_name: 'India',
+        online: 1,
+      },
+      {
+        use_id: 860,
+        username: null,
+        fname: 'Meena',
+        lname: 'S',
+        profile_img: null,
+        sex: 2,
+        dob: null,
+        con_id: null,
+        con_code: null,
+        con_name: null,
+        online: 0,
+      },
+    ]),
   };
   return { profiles, writes };
 }
@@ -351,5 +379,40 @@ describe('profile service', () => {
       size: 20,
     } as Express.Multer.File;
     await expect(svc.uploadPhoto(861, fake)).rejects.toMatchObject({ statusCode: 415 });
+  });
+
+  it('lists newest members as homepage cards with resolved country, age and online flag', async () => {
+    const { profiles } = fakeProfiles();
+    const svc = createProfileService({
+      profiles,
+      reference: fakeReference(),
+      storage: fakeStorage().storage,
+    });
+
+    const { members } = await svc.newestMembers(15);
+
+    expect(profiles.findNewestMembers).toHaveBeenCalledWith(15);
+    expect(members).toHaveLength(2);
+    expect(members[0]).toEqual({
+      id: 864,
+      username: 'arun_k',
+      firstName: 'Arun',
+      lastName: 'Kumar',
+      sex: 'male',
+      age: expect.any(Number),
+      country: { id: 102, code: 'IN', name: 'India' },
+      profileImage: 'https://api.test/uploads/member-photos/864/pic.png',
+      online: true,
+    });
+    // sparse member: no country/dob/photo/username → nulls, not crashes
+    expect(members[1]).toMatchObject({
+      id: 860,
+      username: null,
+      sex: 'female',
+      age: null,
+      country: null,
+      profileImage: null,
+      online: false,
+    });
   });
 });

@@ -68,6 +68,21 @@ export interface VisitingRow {
   c2_name: string | null;
 }
 
+export interface NewestMemberRow {
+  use_id: number;
+  username: string | null;
+  fname: string;
+  lname: string;
+  profile_img: string | null;
+  sex: number;
+  dob: number | null;
+  con_id: number | null;
+  con_code: string | null;
+  con_name: string | null;
+  /** 0/1 — row exists in online_users. */
+  online: number;
+}
+
 /** Writes for one save; absent/undefined sections are left untouched. */
 export interface ProfileWrite {
   columns: Record<string, string | number | null>;
@@ -85,6 +100,8 @@ export interface ProfileRepository {
   saveProfile(userId: number, write: ProfileWrite): Promise<void>;
   /** Sets user.profile_img to the stored media URL (or NULL to clear). */
   setProfileImage(userId: number, url: string | null): Promise<void>;
+  /** Newest active members for the public homepage list (members only). */
+  findNewestMembers(limit: number): Promise<NewestMemberRow[]>;
 }
 
 const PROFILE_SELECT = `SELECT u.fname, u.lname, u.profile_img, u.sex, u.dob, u.marital_status, u.languages, u.\`other\`,
@@ -154,6 +171,25 @@ export const profileRepository: ProfileRepository = {
       url,
       userId,
     ]);
+  },
+
+  async findNewestMembers(limit) {
+    // role column wins; legacy rows may have role NULL → fall back to the
+    // roles tinyint (1 = admin), mirroring mapRole() in user.repository.
+    return databaseClient.query<NewestMemberRow>(
+      `SELECT u.use_id, u.username, u.fname, u.lname, u.profile_img, u.sex, u.dob,
+              c.con_id, c.code AS con_code, c.name AS con_name,
+              (o.is_member IS NOT NULL) AS online
+         FROM \`user\` u
+         LEFT JOIN countries c ON c.con_id = u.fdob_con_id
+         LEFT JOIN online_users o ON o.is_member = u.use_id
+        WHERE u.active = 1 AND u.isdel = 0 AND u.suspend = 0
+          AND COALESCE(u.role, 'member') = 'member'
+          AND (u.roles IS NULL OR u.roles <> 1)
+        ORDER BY u.registered DESC
+        LIMIT ?`,
+      [limit],
+    );
   },
 
   async saveProfile(userId, write) {

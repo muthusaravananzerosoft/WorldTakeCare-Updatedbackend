@@ -138,6 +138,22 @@ export interface MemberProfile {
   visitingCountries: CountryRef[];
 }
 
+/** One card in the public newest-members listing (homepage). */
+export interface MemberListItem {
+  id: number;
+  username: string | null;
+  firstName: string;
+  lastName: string;
+  sex: SexValue | null;
+  /** Computed from dob; null when dob is unset. */
+  age: number | null;
+  country: CountryRef | null;
+  /** Absolute URL of user.profile_img; null when no photo uploaded. */
+  profileImage: string | null;
+  /** True when the member has a row in online_users (legacy online dot). */
+  online: boolean;
+}
+
 // ---- Reference options -----------------------------------------------------
 
 export interface ValueOption<V extends string = string> {

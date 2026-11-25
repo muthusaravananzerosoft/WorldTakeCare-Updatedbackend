@@ -5,7 +5,10 @@ import { requireAuth } from '../middleware/auth.middleware.js';
 import { createRateLimiter } from '../middleware/rate-limit.middleware.js';
 import { createUpload } from '../middleware/upload.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
-import { updateProfileSchema } from '../validators/profile.validation.js';
+import {
+  newestMembersQuerySchema,
+  updateProfileSchema,
+} from '../validators/profile.validation.js';
 
 /**
  * Member profile — the authenticated member's own profile only. Identity
@@ -20,6 +23,13 @@ const photoUpload = createUpload({
 });
 
 export const userRouter = Router();
+
+// Public — newest members for the homepage list (legacy front_new_members).
+userRouter.get(
+  '/newest',
+  validate({ query: newestMembersQuerySchema }),
+  asyncHandler(profileController.newest),
+);
 
 userRouter.use(requireAuth);
 

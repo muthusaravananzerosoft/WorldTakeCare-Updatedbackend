@@ -99,3 +99,8 @@ export const updateProfileSchema = z.object({
     .max(MAX_VISITING_COUNTRIES, 'Select at most two countries')
     .optional(),
 });
+
+/** GET /users/newest — public homepage list; legacy shows 15. */
+export const newestMembersQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(15),
+});

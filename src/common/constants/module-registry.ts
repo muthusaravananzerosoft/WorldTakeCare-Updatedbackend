@@ -59,7 +59,7 @@ export const MODULES = [
     basePath: '/users',
     status: 'implemented',
     summary:
-      'Own account settings (email + password via /auth/change-password) and the full member profile — personal details, primary/secondary locations, visited countries, currently visiting countries and the profile photo (POST/DELETE /users/me/profile/photo → user.profile_img) — under GET/PUT /users/me/profile.',
+      'Own account settings (email + password via /auth/change-password) and the full member profile — personal details, primary/secondary locations, visited countries, currently visiting countries and the profile photo (POST/DELETE /users/me/profile/photo → user.profile_img) — under GET/PUT /users/me/profile. Public GET /users/newest serves the homepage recent-members list (members only).',
     legacyFiles: [
       'user-save.php?q=account|profile|location',
       'include/user-account.php',
@@ -130,7 +130,7 @@ export const MODULES = [
     basePath: '/discovery',
     status: 'planned',
     summary:
-      'Member search (sex, country/state, age, ethnicity, religion, US zip radius), online members, members who visited a country, newest members, today’s birthdays, birthday twins.',
+      'Member search (sex, country/state, age, ethnicity, religion, US zip radius), online members, members who visited a country, today’s birthdays, birthday twins. The homepage newest-members list is implemented as GET /users/newest.',
     legacyFiles: [
       'search.php',
       'search-check.php',
