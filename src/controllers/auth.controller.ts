@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { HTTP_STATUS } from '../common/constants/http-status.constants.js';
 import { sendSuccess } from '../common/responses/api-response.js';
-import type { LoginInput, RegisterInput } from '../entities/auth.types.js';
+import type { LoginInput, RegisterInput, SocialLoginInput } from '../entities/auth.types.js';
 import { authService } from '../services/auth.service.js';
 
 const body = <T>(res: Response) => res.locals.validated.body as T;
@@ -23,6 +23,10 @@ export const authController = {
 
   async login(req: Request, res: Response) {
     sendSuccess(req, res, await authService.login(body<LoginInput>(res)));
+  },
+
+  async socialLogin(req: Request, res: Response) {
+    sendSuccess(req, res, await authService.socialLogin(body<SocialLoginInput>(res), req.ip));
   },
 
   async refresh(req: Request, res: Response) {
@@ -76,6 +80,7 @@ export const authController = {
         'GET /activate',
         'POST /resend-activation',
         'POST /login',
+        'POST /social',
         'POST /refresh',
         'POST /logout',
         'POST /forgot-password',

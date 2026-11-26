@@ -21,6 +21,24 @@ export interface LoginInput {
   password: string;
 }
 
+/** Validated body of POST /auth/social. Provider set grows per phase. */
+export interface SocialLoginInput {
+  provider: 'google';
+  /** Signed credential issued by the provider (Google id_token JWT). */
+  idToken: string;
+  role: RegistrableRole;
+}
+
+/** Normalized identity claims after the provider token is verified server-side. */
+export interface SocialProfile {
+  /** Provider's stable user id (Google `sub`). */
+  providerUserId: string;
+  email: string;
+  emailVerified: boolean;
+  firstName: string;
+  lastName: string;
+}
+
 /** User row mapped off the legacy columns. */
 export interface UserRecord {
   id: number;

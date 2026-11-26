@@ -72,6 +72,7 @@ function makeDeps(): ConnectionServiceDeps {
       findById: vi.fn(async () => userRecord()),
       findCountryIdByCode: vi.fn(async () => null),
       create: vi.fn(),
+      createSocial: vi.fn(),
       setActive: vi.fn(),
       updatePassword: vi.fn(),
       updateEmail: vi.fn(),

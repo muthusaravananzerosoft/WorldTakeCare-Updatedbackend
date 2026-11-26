@@ -63,6 +63,7 @@ function makeDeps(): GuideProfileServiceDeps {
       })),
       findCountryIdByCode: vi.fn(async () => null),
       create: vi.fn(),
+      createSocial: vi.fn(),
       setActive: vi.fn(),
       updatePassword: vi.fn(),
       updateEmail: vi.fn(),

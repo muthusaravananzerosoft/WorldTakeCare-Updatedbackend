@@ -34,7 +34,7 @@ export const MODULES = [
     basePath: '/auth',
     status: 'implemented',
     summary:
-      'Registration, email activation, login/logout, password reset, social sign-in (Google, Microsoft, Apple, Facebook, Twitter).',
+      'Registration, email activation, login/logout, password reset, social sign-in. POST /auth/social verifies the Google id_token server-side and finds/links/creates the account on user_social_login + user.provider_id (Microsoft, Apple, X redirect flow pending).',
     legacyFiles: [
       'login-account.php',
       'logout.php',

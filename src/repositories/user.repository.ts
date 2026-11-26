@@ -17,11 +17,24 @@ export interface CreateUserData {
   registeredIp?: string | null;
 }
 
+/** Social signup — no password/dob/sex; provider linkage replaces activation. */
+export interface CreateSocialUserData {
+  email: string;
+  firstName: string;
+  lastName: string;
+  /** Provider's user id, also stored on user.provider_id for legacy compatibility. */
+  providerUserId: string;
+  role: UserRole;
+  registeredIp?: string | null;
+}
+
 export interface UserRepository {
   findByEmail(email: string): Promise<UserRecord | null>;
   findById(id: number): Promise<UserRecord | null>;
   findCountryIdByCode(code: string): Promise<number | null>;
   create(data: CreateUserData): Promise<UserRecord>;
+  /** Social-created accounts: active immediately, empty password, sex unset (0). */
+  createSocial(data: CreateSocialUserData): Promise<UserRecord>;
   setActive(id: number): Promise<void>;
   updatePassword(id: number, passwordHash: string): Promise<void>;
   updateEmail(id: number, email: string): Promise<void>;
@@ -117,6 +130,27 @@ export const userRepository: UserRepository = {
         String(epochSeconds()),
         data.registeredIp ?? null,
         data.countryId,
+      ],
+    );
+    const created = await this.findById(Number(result.insertId));
+    if (!created) throw new Error('User insert succeeded but row could not be read back');
+    return created;
+  },
+
+  async createSocial(data) {
+    const result = await databaseClient.execute(
+      `INSERT INTO \`user\`
+        (username, provider_id, email, password, fname, lname, sex, dob, active, isdel, suspend,
+         role, roles, registered, registered_ip)
+       VALUES (NULL, ?, ?, '', ?, ?, 0, NULL, 1, 0, 0, ?, 3, ?, ?)`,
+      [
+        data.providerUserId,
+        data.email,
+        data.firstName,
+        data.lastName,
+        data.role,
+        String(epochSeconds()),
+        data.registeredIp ?? null,
       ],
     );
     const created = await this.findById(Number(result.insertId));

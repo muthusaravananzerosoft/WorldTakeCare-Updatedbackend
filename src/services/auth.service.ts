@@ -12,9 +12,16 @@ import type {
   LoginInput,
   PublicUser,
   RegisterInput,
+  SocialLoginInput,
   TokenPair,
   UserRecord,
 } from '../entities/auth.types.js';
+import { googleVerifier } from '../integrations/social/google-verifier.js';
+import type { SocialTokenVerifier } from '../integrations/social/social-verifier.interface.js';
+import {
+  socialAccountRepository,
+  type SocialAccountRepository,
+} from '../repositories/social-account.repository.js';
 import { tokenRepository, type TokenRepository } from '../repositories/token.repository.js';
 import { userRepository, type UserRepository } from '../repositories/user.repository.js';
 import { signAccessToken } from './jwt.service.js';
@@ -27,6 +34,8 @@ export interface AuthServiceDeps {
   users: UserRepository;
   tokens: TokenRepository;
   mail: MailSender;
+  socials: SocialAccountRepository;
+  verifier: SocialTokenVerifier;
 }
 
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -55,7 +64,7 @@ function invalidToken(): AppError {
   );
 }
 
-export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
+export function createAuthService({ users, tokens, mail, socials, verifier }: AuthServiceDeps) {
   async function issueTokenPair(user: UserRecord): Promise<TokenPair> {
     const refreshToken = randomToken();
     await tokens.createRefreshToken(
@@ -192,6 +201,54 @@ export function createAuthService({ users, tokens, mail }: AuthServiceDeps) {
       return { user: toPublic(user), tokens: await issueTokenPair(user) };
     },
 
+    /**
+     * Social sign-in (POST /auth/social). The provider's signed id token is
+     * verified server-side; the account is then found by the provider link,
+     * linked to an existing email account, or created — mirroring the legacy
+     * social-login.php flow but on user_social_login + user.provider_id.
+     * Social-created accounts skip email activation (the provider already
+     * verified the address).
+     */
+    async socialLogin(input: SocialLoginInput, ip?: string): Promise<AuthResult> {
+      const profile = await verifier.verify(input.provider, input.idToken);
+      if (!profile.emailVerified) throw invalidCredentials();
+
+      let user: UserRecord | null = null;
+      const linkedId = await socials.findUserId(input.provider, profile.providerUserId);
+      if (linkedId) user = await users.findById(linkedId);
+
+      if (!user) {
+        const existing = await users.findByEmail(profile.email);
+        if (existing) {
+          // Email/password account — link the provider, keep its original role.
+          await socials.link(existing.id, input.provider, profile.providerUserId, {
+            firstName: existing.firstName,
+            lastName: existing.lastName,
+            email: existing.email,
+          });
+          user = existing;
+        } else {
+          user = await users.createSocial({
+            email: profile.email,
+            firstName: profile.firstName.slice(0, 30) || 'Member',
+            lastName: profile.lastName.slice(0, 30),
+            providerUserId: profile.providerUserId,
+            role: input.role,
+            registeredIp: ip ?? null,
+          });
+          await socials.link(user.id, input.provider, profile.providerUserId, {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+          });
+        }
+      }
+
+      assertCanLogin(user);
+      await users.touchLastLogin(user.id);
+      return { user: toPublic(user), tokens: await issueTokenPair(user) };
+    },
+
     async refresh(refreshToken: string): Promise<AuthResult> {
       const row = await tokens.findRefreshTokenByHash(sha256(refreshToken));
       if (!row) throw AppError.unauthorized('Invalid refresh token');
@@ -299,4 +356,6 @@ export const authService = createAuthService({
   users: userRepository,
   tokens: tokenRepository,
   mail: mailSender,
+  socials: socialAccountRepository,
+  verifier: googleVerifier,
 });

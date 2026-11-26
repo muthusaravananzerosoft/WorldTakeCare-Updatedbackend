@@ -1,14 +1,26 @@
 import { decodeJwt } from 'jose';
 import { describe, expect, it } from 'vitest';
 import { USER_ROLES } from '../src/common/constants/auth.constants.js';
+import { AppError } from '../src/common/errors/app-error.js';
 import type { MailMessage, MailSender } from '../src/integrations/mail/mail-sender.interface.js';
-import type { AuthTokenType, RegisterInput, UserRecord } from '../src/entities/auth.types.js';
+import type { SocialTokenVerifier } from '../src/integrations/social/social-verifier.interface.js';
+import type {
+  AuthTokenType,
+  RegisterInput,
+  SocialProfile,
+  UserRecord,
+} from '../src/entities/auth.types.js';
+import type { SocialAccountRepository } from '../src/repositories/social-account.repository.js';
 import type {
   AuthTokenRow,
   RefreshTokenRow,
   TokenRepository,
 } from '../src/repositories/token.repository.js';
-import type { CreateUserData, UserRepository } from '../src/repositories/user.repository.js';
+import type {
+  CreateSocialUserData,
+  CreateUserData,
+  UserRepository,
+} from '../src/repositories/user.repository.js';
 import { createAuthService } from '../src/services/auth.service.js';
 import { verifyAccessToken } from '../src/services/jwt.service.js';
 
@@ -35,6 +47,19 @@ function fakeUsers() {
         lastName: data.lastName,
         role: data.role,
         status: 'pending',
+      };
+      rows.push(user);
+      return user;
+    },
+    async createSocial(data: CreateSocialUserData) {
+      const user: UserRecord = {
+        id: Math.max(0, ...rows.map((r) => r.id)) + 1,
+        email: data.email,
+        passwordHash: '',
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role,
+        status: 'active', // social accounts skip activation
       };
       rows.push(user);
       return user;
@@ -95,6 +120,50 @@ function fakeMail() {
   return { mail, sent };
 }
 
+function fakeSocials() {
+  const links: { userId: number; provider: string; providerUserId: string }[] = [];
+  const socials: SocialAccountRepository = {
+    async findUserId(provider, providerUserId) {
+      return (
+        links.find((l) => l.provider === provider && l.providerUserId === providerUserId)
+          ?.userId ?? null
+      );
+    },
+    async link(userId, provider, providerUserId) {
+      links.push({ userId, provider, providerUserId });
+    },
+  };
+  return { socials, links };
+}
+
+const GOOGLE_PROFILE: SocialProfile = {
+  providerUserId: 'google-sub-123',
+  email: 'social@example.com',
+  emailVerified: true,
+  firstName: 'Social',
+  lastName: 'User',
+};
+
+function fakeVerifier(profile: SocialProfile | null = GOOGLE_PROFILE): SocialTokenVerifier {
+  return {
+    async verify() {
+      if (!profile) throw AppError.unauthorized('Invalid Google sign-in token');
+      return profile;
+    },
+  };
+}
+
+/** Same call shape the pre-social tests used — socials/verifier faked by default. */
+function makeService(users: UserRepository, tokens: TokenRepository, mail: MailSender) {
+  return createAuthService({
+    users,
+    tokens,
+    mail,
+    socials: fakeSocials().socials,
+    verifier: fakeVerifier(),
+  });
+}
+
 const REGISTER: RegisterInput = {
   firstName: 'Test',
   lastName: 'User',
@@ -119,7 +188,7 @@ describe('auth service', () => {
     const { users, rows } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail, sent } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     const res = await svc.register({ ...REGISTER }, '1.2.3.4');
 
@@ -136,7 +205,7 @@ describe('auth service', () => {
     const { users } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     await svc.register({ ...REGISTER });
     await expect(svc.register({ ...REGISTER })).rejects.toMatchObject({
@@ -149,7 +218,7 @@ describe('auth service', () => {
     const { users } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail, sent } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     await svc.register({ ...REGISTER });
     await expect(
@@ -172,7 +241,7 @@ describe('auth service', () => {
     const { users, rows } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail, sent } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     await svc.register({ ...REGISTER });
     await svc.activate(extractToken(sent[0]!.text));
@@ -186,7 +255,7 @@ describe('auth service', () => {
     const { users } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail, sent } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     await svc.register({ ...REGISTER });
     await svc.activate(extractToken(sent[0]!.text));
@@ -204,7 +273,7 @@ describe('auth service', () => {
     const { users } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail, sent } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     await svc.register({ ...REGISTER });
     const { tokens: pair } = await svc.activate(extractToken(sent[0]!.text));
@@ -220,7 +289,7 @@ describe('auth service', () => {
     const { users } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail, sent } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     await svc.register({ ...REGISTER });
     await svc.activate(extractToken(sent[0]!.text));
@@ -242,7 +311,7 @@ describe('auth service', () => {
     const { users } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail, sent } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     // unknown email → still 200, no mail
     const res1 = await svc.forgotPassword('ghost@example.com');
@@ -269,7 +338,7 @@ describe('auth service', () => {
     const { users, rows } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     // seed a legacy row: active user with md5('Passw0rd!x')
     const { createHash } = await import('node:crypto');
@@ -293,7 +362,7 @@ describe('auth service', () => {
     const { users, rows } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail, sent } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     await svc.register({ ...REGISTER });
     await svc.activate(extractToken(sent[0]!.text));
@@ -316,7 +385,7 @@ describe('auth service', () => {
     const { users, rows } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail, sent } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     await svc.register({ ...REGISTER });
     await svc.activate(extractToken(sent[0]!.text));
@@ -340,7 +409,7 @@ describe('auth service', () => {
     const { users, rows } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail, sent } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     await svc.register({ ...REGISTER });
     await svc.activate(extractToken(sent[0]!.text));
@@ -359,7 +428,7 @@ describe('auth service', () => {
     const { users } = fakeUsers();
     const { tokens } = fakeTokens();
     const { mail, sent } = fakeMail();
-    const svc = createAuthService({ users, tokens, mail });
+    const svc = makeService(users, tokens, mail);
 
     await svc.register({ ...REGISTER });
     await svc.activate(extractToken(sent[0]!.text));
@@ -367,5 +436,128 @@ describe('auth service', () => {
     await expect(
       svc.changePassword(1, REGISTER.email, REGISTER.password, REGISTER.password),
     ).rejects.toMatchObject({ statusCode: 400 });
+  });
+});
+
+describe('social login', () => {
+  const INPUT = { provider: 'google' as const, idToken: 'id-token', role: 'guide' as const };
+
+  it('creates an active account and links it from a verified Google token', async () => {
+    const { users, rows } = fakeUsers();
+    const { tokens } = fakeTokens();
+    const { mail } = fakeMail();
+    const { socials, links } = fakeSocials();
+    const svc = createAuthService({ users, tokens, mail, socials, verifier: fakeVerifier() });
+
+    const res = await svc.socialLogin(INPUT, '10.0.0.1');
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.status).toBe('active'); // skips email activation
+    expect(rows[0]!.role).toBe('guide'); // role chosen in the popup
+    expect(links).toEqual([
+      { userId: rows[0]!.id, provider: 'google', providerUserId: 'google-sub-123' },
+    ]);
+    expect(res.user.email).toBe('social@example.com');
+    expect(res.tokens.refreshToken).toBeTruthy();
+  });
+
+  it('links an existing email account instead of duplicating, keeping its role', async () => {
+    const { users, rows } = fakeUsers();
+    rows.push({
+      id: 5,
+      email: 'social@example.com',
+      passwordHash: 'hash',
+      firstName: 'Old',
+      lastName: 'Acct',
+      role: 'member',
+      status: 'active',
+    });
+    const { socials, links } = fakeSocials();
+    const svc = createAuthService({
+      users,
+      tokens: fakeTokens().tokens,
+      mail: fakeMail().mail,
+      socials,
+      verifier: fakeVerifier(),
+    });
+
+    const res = await svc.socialLogin(INPUT);
+
+    expect(rows).toHaveLength(1); // no new user created
+    expect(res.user.id).toBe(5);
+    expect(res.user.role).toBe('member'); // original role kept, not the popup's 'guide'
+    expect(links[0]).toMatchObject({ userId: 5, provider: 'google' });
+  });
+
+  it('logs straight in when the provider link already exists', async () => {
+    const { users, rows } = fakeUsers();
+    rows.push({
+      id: 7,
+      email: 'social@example.com',
+      passwordHash: '',
+      firstName: 'S',
+      lastName: 'U',
+      role: 'member',
+      status: 'active',
+    });
+    const { socials, links } = fakeSocials();
+    links.push({ userId: 7, provider: 'google', providerUserId: 'google-sub-123' });
+    const svc = createAuthService({
+      users,
+      tokens: fakeTokens().tokens,
+      mail: fakeMail().mail,
+      socials,
+      verifier: fakeVerifier(),
+    });
+
+    const res = await svc.socialLogin(INPUT);
+
+    expect(res.user.id).toBe(7);
+    expect(links).toHaveLength(1); // no duplicate link row
+  });
+
+  it('rejects unverified provider emails and invalid tokens as 401', async () => {
+    const { users } = fakeUsers();
+    const { socials } = fakeSocials();
+
+    const unverified = createAuthService({
+      users,
+      tokens: fakeTokens().tokens,
+      mail: fakeMail().mail,
+      socials,
+      verifier: fakeVerifier({ ...GOOGLE_PROFILE, emailVerified: false }),
+    });
+    await expect(unverified.socialLogin(INPUT)).rejects.toMatchObject({ statusCode: 401 });
+
+    const badToken = createAuthService({
+      users,
+      tokens: fakeTokens().tokens,
+      mail: fakeMail().mail,
+      socials,
+      verifier: fakeVerifier(null),
+    });
+    await expect(badToken.socialLogin(INPUT)).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it('blocks suspended accounts even with a valid token', async () => {
+    const { users, rows } = fakeUsers();
+    rows.push({
+      id: 9,
+      email: 'social@example.com',
+      passwordHash: '',
+      firstName: 'S',
+      lastName: 'U',
+      role: 'member',
+      status: 'suspended',
+    });
+    const svc = createAuthService({
+      users,
+      tokens: fakeTokens().tokens,
+      mail: fakeMail().mail,
+      socials: fakeSocials().socials,
+      verifier: fakeVerifier(),
+    });
+
+    await expect(svc.socialLogin(INPUT)).rejects.toMatchObject({ statusCode: 403 });
   });
 });

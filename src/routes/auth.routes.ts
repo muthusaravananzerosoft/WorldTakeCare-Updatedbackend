@@ -11,6 +11,7 @@ import {
   refreshTokenSchema,
   registerSchema,
   resetPasswordSchema,
+  socialLoginSchema,
   tokenQuerySchema,
 } from '../validators/auth.validation.js';
 
@@ -47,6 +48,12 @@ authRouter.post(
   strict,
   validate({ body: loginSchema }),
   asyncHandler(authController.login),
+);
+authRouter.post(
+  '/social',
+  strict,
+  validate({ body: socialLoginSchema }),
+  asyncHandler(authController.socialLogin),
 );
 authRouter.post(
   '/refresh',

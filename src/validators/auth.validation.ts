@@ -59,6 +59,17 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+/**
+ * POST /auth/social — provider-issued id token + the role chosen in the
+ * signup popup. Only Google ships in phase 1; redirect-flow providers
+ * (Microsoft, Apple, X) get their own start/callback endpoints later.
+ */
+export const socialLoginSchema = z.object({
+  provider: z.literal('google'),
+  idToken: z.string().min(1, 'idToken is required'),
+  role: z.enum(REGISTRABLE_ROLES).default('member'),
+});
+
 export const emailOnlySchema = z.object({ email: emailSchema });
 
 export const tokenQuerySchema = z.object({

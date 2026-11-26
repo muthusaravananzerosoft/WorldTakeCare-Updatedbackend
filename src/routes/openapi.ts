@@ -123,6 +123,50 @@ export const openApiDocument = {
         },
       },
     },
+    '/auth/social': {
+      post: {
+        tags: ['auth'],
+        summary:
+          'Social sign-in — verify the provider-issued id token server-side, then find, link or create the account. Same response shape as /auth/login. Google only in phase 1.',
+        operationId: 'socialLogin',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['provider', 'idToken'],
+                properties: {
+                  provider: { type: 'string', enum: ['google'] },
+                  idToken: {
+                    type: 'string',
+                    description: 'Signed id_token from the provider (Google credential JWT)',
+                  },
+                  role: {
+                    type: 'string',
+                    enum: ['member', 'guide'],
+                    default: 'member',
+                    description: 'Role chosen in the signup popup — used only when creating the account',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Token pair + public user (same shape as login)',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } },
+            },
+          },
+          '400': { description: 'Validation failed or provider not enabled' },
+          '401': { description: 'Invalid or unverified token' },
+          '403': { description: 'Account suspended / deleted' },
+          '429': { description: 'Rate limited' },
+        },
+      },
+    },
     '/auth/refresh': {
       post: {
         tags: ['auth'],

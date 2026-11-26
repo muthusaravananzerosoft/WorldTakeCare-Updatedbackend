@@ -73,6 +73,9 @@ const envSchema = z.object({
   // Local-disk media storage root; objects are served under /uploads/*.
   // Swap the MediaStorage adapter for object storage in production later.
   MEDIA_STORAGE_DIR: z.string().min(1).default('uploads'),
+  // Google sign-in — the OAuth client id the frontend's Google button uses.
+  // POST /auth/social verifies id tokens against this audience; unset disables it.
+  GOOGLE_CLIENT_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
