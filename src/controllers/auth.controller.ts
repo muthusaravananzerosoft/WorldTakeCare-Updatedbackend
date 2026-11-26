@@ -55,10 +55,14 @@ export const authController = {
     const { provider } = params<{ provider: OAuthProviderName }>(res);
     const { role } = query<{ role: RegistrableRole }>(res);
     const { url, cookie } = await authService.oauthStart(provider, role);
+    const isProd = env.NODE_ENV === 'production';
     res.cookie(OAUTH_STATE_COOKIE, cookie, {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: env.NODE_ENV === 'production',
+      // 'none' lets Apple's cross-site form_post carry the cookie back (Lax
+      // blocks it in every browser); Secure is mandatory when SameSite=None.
+      // Dev stays Lax/non-secure so http://localhost testing still works.
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
       maxAge: 10 * 60 * 1000,
       path: '/',
     });
