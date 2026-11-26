@@ -167,6 +167,110 @@ export const openApiDocument = {
         },
       },
     },
+    '/auth/oauth/{provider}/start': {
+      get: {
+        tags: ['auth'],
+        summary:
+          'Server-side OAuth step 1 — sets a signed 10-minute state cookie (nonce + role + PKCE verifier for X) and 302-redirects the browser to the provider consent screen. Browser-facing; responds with redirects, not JSON.',
+        operationId: 'oauthStart',
+        parameters: [
+          {
+            name: 'provider',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', enum: ['microsoft', 'apple', 'twitter'] },
+          },
+          {
+            name: 'role',
+            in: 'query',
+            schema: { type: 'string', enum: ['member', 'guide'], default: 'member' },
+            description: 'Role carried through the redirect — used only when creating the account',
+          },
+        ],
+        responses: {
+          '302': {
+            description: 'Redirect to the provider consent URL (Set-Cookie: wt_oauth)',
+            headers: {
+              Location: { schema: { type: 'string' } },
+              'Set-Cookie': { schema: { type: 'string' } },
+            },
+          },
+          '400': { description: 'Unknown provider or provider not configured on this server' },
+          '429': { description: 'Rate limited' },
+        },
+      },
+    },
+    '/auth/oauth/{provider}/callback': {
+      get: {
+        tags: ['auth'],
+        summary:
+          'Server-side OAuth step 2 — the provider redirects here with code+state. On success 302s to the frontend with accessToken/refreshToken in the URL hash; on failure 302s with #error=<code>. Used by Microsoft and X.',
+        operationId: 'oauthCallback',
+        parameters: [
+          {
+            name: 'provider',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', enum: ['microsoft', 'apple', 'twitter'] },
+          },
+          { name: 'code', in: 'query', schema: { type: 'string' } },
+          { name: 'state', in: 'query', schema: { type: 'string' } },
+          {
+            name: 'error',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Present when the user cancels consent (e.g. access_denied)',
+          },
+        ],
+        responses: {
+          '302': {
+            description:
+              'Redirect to {OAUTH_FRONTEND_REDIRECT|WEB_APP_URL}/login — #accessToken=...&refreshToken=... on success, #error=<code> on failure',
+            headers: { Location: { schema: { type: 'string' } } },
+          },
+          '400': { description: 'Unknown provider' },
+        },
+      },
+      post: {
+        tags: ['auth'],
+        summary:
+          'Apple-only variant — response_mode=form_post delivers code/state/user as form fields. Same 302 behavior as the GET callback. The `user` field (JSON) carries the name on first consent only.',
+        operationId: 'oauthCallbackPost',
+        parameters: [
+          {
+            name: 'provider',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', enum: ['microsoft', 'apple', 'twitter'] },
+          },
+        ],
+        requestBody: {
+          content: {
+            'application/x-www-form-urlencoded': {
+              schema: {
+                type: 'object',
+                properties: {
+                  code: { type: 'string' },
+                  state: { type: 'string' },
+                  user: {
+                    type: 'string',
+                    description: 'Apple first-consent JSON: {"name":{"firstName","lastName"},"email"}',
+                  },
+                  error: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '302': {
+            description: 'Same redirect contract as the GET callback',
+            headers: { Location: { schema: { type: 'string' } } },
+          },
+          '400': { description: 'Unknown provider' },
+        },
+      },
+    },
     '/auth/refresh': {
       post: {
         tags: ['auth'],

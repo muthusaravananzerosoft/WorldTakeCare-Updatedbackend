@@ -61,13 +61,42 @@ export const loginSchema = z.object({
 
 /**
  * POST /auth/social — provider-issued id token + the role chosen in the
- * signup popup. Only Google ships in phase 1; redirect-flow providers
- * (Microsoft, Apple, X) get their own start/callback endpoints later.
+ * signup popup. Browser-native providers only (Google); redirect-flow
+ * providers (Microsoft, Apple, X) use the /oauth/:provider/* endpoints below.
  */
 export const socialLoginSchema = z.object({
   provider: z.literal('google'),
   idToken: z.string().min(1, 'idToken is required'),
   role: z.enum(REGISTRABLE_ROLES).default('member'),
+});
+
+/** GET /auth/oauth/:provider/* — the three redirect-flow providers. */
+export const oauthProviderParamsSchema = z.object({
+  provider: z.enum(['microsoft', 'apple', 'twitter']),
+});
+
+export const oauthStartQuerySchema = z.object({
+  role: z.enum(REGISTRABLE_ROLES).default('member'),
+});
+
+/**
+ * Provider callbacks — code/state arrive in the query (Microsoft, X) or in a
+ * form POST body (Apple's response_mode=form_post). Presence is enforced in
+ * the service, not the schema, so provider error redirects (?error=...) reach
+ * the handler instead of dying in validation.
+ */
+export const oauthCallbackQuerySchema = z.object({
+  code: z.string().optional(),
+  state: z.string().optional(),
+  error: z.string().optional(),
+});
+
+export const oauthCallbackBodySchema = z.object({
+  code: z.string().optional(),
+  state: z.string().optional(),
+  /** Apple only: JSON blob with the user's name, sent on first consent. */
+  user: z.string().optional(),
+  error: z.string().optional(),
 });
 
 export const emailOnlySchema = z.object({ email: emailSchema });

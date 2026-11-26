@@ -76,6 +76,20 @@ const envSchema = z.object({
   // Google sign-in — the OAuth client id the frontend's Google button uses.
   // POST /auth/social verifies id tokens against this audience; unset disables it.
   GOOGLE_CLIENT_ID: z.string().optional(),
+  // Server-side OAuth (Microsoft / Apple / X redirect flow). Each provider is
+  // enabled only when its env values are present.
+  MICROSOFT_CLIENT_ID: z.string().optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().optional(),
+  APPLE_CLIENT_ID: z.string().optional(),
+  APPLE_TEAM_ID: z.string().optional(),
+  APPLE_KEY_ID: z.string().optional(),
+  /** Contents of the AuthKey .p8 file; '\n' escapes are normalized to real newlines. */
+  APPLE_PRIVATE_KEY: z.string().optional(),
+  TWITTER_CLIENT_ID: z.string().optional(),
+  TWITTER_CLIENT_SECRET: z.string().optional(),
+  // Where the browser lands after an OAuth callback. Tokens ride in the URL
+  // hash; defaults to {WEB_APP_URL}/login.
+  OAUTH_FRONTEND_REDIRECT: z.url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

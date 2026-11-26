@@ -31,13 +31,17 @@ export interface SocialLoginInput {
 
 /** Normalized identity claims after the provider token is verified server-side. */
 export interface SocialProfile {
-  /** Provider's stable user id (Google `sub`). */
+  /** Provider's stable user id (Google `sub`, Microsoft object id, X user id). */
   providerUserId: string;
-  email: string;
+  /** null when the provider returns no email (common for X without elevated access). */
+  email: string | null;
   emailVerified: boolean;
   firstName: string;
   lastName: string;
 }
+
+/** Providers using the server-side redirect flow (/auth/oauth/:provider/*). */
+export type OAuthProviderName = 'microsoft' | 'apple' | 'twitter';
 
 /** User row mapped off the legacy columns. */
 export interface UserRecord {

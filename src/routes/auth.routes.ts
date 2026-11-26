@@ -8,6 +8,10 @@ import {
   changePasswordSchema,
   emailOnlySchema,
   loginSchema,
+  oauthCallbackBodySchema,
+  oauthCallbackQuerySchema,
+  oauthProviderParamsSchema,
+  oauthStartQuerySchema,
   refreshTokenSchema,
   registerSchema,
   resetPasswordSchema,
@@ -54,6 +58,25 @@ authRouter.post(
   strict,
   validate({ body: socialLoginSchema }),
   asyncHandler(authController.socialLogin),
+);
+// Server-side OAuth (Microsoft / Apple / X). start sets a signed state cookie
+// and 302s to the provider; the callback is a browser redirect, so GET has no
+// strict limiter — the provider may retry it. Apple POSTs via form_post.
+authRouter.get(
+  '/oauth/:provider/start',
+  strict,
+  validate({ params: oauthProviderParamsSchema, query: oauthStartQuerySchema }),
+  asyncHandler(authController.oauthStart),
+);
+authRouter.get(
+  '/oauth/:provider/callback',
+  validate({ params: oauthProviderParamsSchema, query: oauthCallbackQuerySchema }),
+  asyncHandler(authController.oauthCallback),
+);
+authRouter.post(
+  '/oauth/:provider/callback',
+  validate({ params: oauthProviderParamsSchema, body: oauthCallbackBodySchema }),
+  asyncHandler(authController.oauthCallback),
 );
 authRouter.post(
   '/refresh',

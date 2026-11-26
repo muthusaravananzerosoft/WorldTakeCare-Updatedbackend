@@ -1,8 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
+import { SignJWT, jwtVerify } from 'jose';
 import { ERROR_CODES } from '../common/constants/error-codes.constants.js';
 import { HTTP_STATUS } from '../common/constants/http-status.constants.js';
+import type { RegistrableRole } from '../common/constants/auth.constants.js';
 import { AppError } from '../common/errors/app-error.js';
+import { appConfig } from '../config/app.config.js';
 import { env } from '../config/env.config.js';
 import { mailSender } from '../integrations/mail/index.js';
 import type { MailSender } from '../integrations/mail/mail-sender.interface.js';
@@ -10,13 +13,20 @@ import type {
   AuthResult,
   AuthTokenType,
   LoginInput,
+  OAuthProviderName,
   PublicUser,
   RegisterInput,
   SocialLoginInput,
+  SocialProfile,
   TokenPair,
   UserRecord,
 } from '../entities/auth.types.js';
 import { googleVerifier } from '../integrations/social/google-verifier.js';
+import {
+  oauthProviders,
+  pkceChallenge,
+  type OAuthProviderRegistry,
+} from '../integrations/social/oauth-providers.js';
 import type { SocialTokenVerifier } from '../integrations/social/social-verifier.interface.js';
 import {
   socialAccountRepository,
@@ -36,6 +46,18 @@ export interface AuthServiceDeps {
   mail: MailSender;
   socials: SocialAccountRepository;
   verifier: SocialTokenVerifier;
+  oauth: OAuthProviderRegistry;
+}
+
+const OAUTH_STATE_ISSUER = 'worldtaker-oauth';
+const OAUTH_STATE_TTL = '10m';
+
+function stateSecret(): Uint8Array {
+  return new TextEncoder().encode(env.JWT_ACCESS_SECRET);
+}
+
+function oauthCallbackUri(provider: OAuthProviderName): string {
+  return `${env.APP_BASE_URL}${appConfig.apiPrefix}/auth/oauth/${provider}/callback`;
 }
 
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -64,7 +86,14 @@ function invalidToken(): AppError {
   );
 }
 
-export function createAuthService({ users, tokens, mail, socials, verifier }: AuthServiceDeps) {
+export function createAuthService({
+  users,
+  tokens,
+  mail,
+  socials,
+  verifier,
+  oauth,
+}: AuthServiceDeps) {
   async function issueTokenPair(user: UserRecord): Promise<TokenPair> {
     const refreshToken = randomToken();
     await tokens.createRefreshToken(
@@ -124,6 +153,60 @@ export function createAuthService({ users, tokens, mail, socials, verifier }: Au
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Shared tail of every social sign-in: the provider already delivered a
+   * verified identity, so we resolve the account — provider link first, then
+   * an existing email account to link, then a fresh social user — apply the
+   * login guard rails and issue the normal token pair. Social-created
+   * accounts skip email activation (the provider verified the address).
+   */
+  async function completeSocialLogin(
+    provider: string,
+    profile: SocialProfile,
+    role: RegistrableRole,
+    ip?: string,
+  ): Promise<AuthResult> {
+    if (profile.email && !profile.emailVerified) throw invalidCredentials();
+    // X often returns no email — a deterministic placeholder keeps the
+    // account unique while staying clearly internal-only.
+    const email = profile.email ?? `${profile.providerUserId}@${provider}.oauth.local`;
+
+    let user: UserRecord | null = null;
+    const linkedId = await socials.findUserId(provider, profile.providerUserId);
+    if (linkedId) user = await users.findById(linkedId);
+
+    if (!user) {
+      const existing = await users.findByEmail(email);
+      if (existing) {
+        // Email/password account — link the provider, keep its original role.
+        await socials.link(existing.id, provider, profile.providerUserId, {
+          firstName: existing.firstName,
+          lastName: existing.lastName,
+          email: existing.email,
+        });
+        user = existing;
+      } else {
+        user = await users.createSocial({
+          email,
+          firstName: profile.firstName.slice(0, 30) || 'Member',
+          lastName: profile.lastName.slice(0, 30),
+          providerUserId: profile.providerUserId,
+          role,
+          registeredIp: ip ?? null,
+        });
+        await socials.link(user.id, provider, profile.providerUserId, {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+        });
+      }
+    }
+
+    assertCanLogin(user);
+    await users.touchLastLogin(user.id);
+    return { user: toPublic(user), tokens: await issueTokenPair(user) };
   }
 
   return {
@@ -211,42 +294,90 @@ export function createAuthService({ users, tokens, mail, socials, verifier }: Au
      */
     async socialLogin(input: SocialLoginInput, ip?: string): Promise<AuthResult> {
       const profile = await verifier.verify(input.provider, input.idToken);
-      if (!profile.emailVerified) throw invalidCredentials();
+      return completeSocialLogin(input.provider, profile, input.role, ip);
+    },
 
-      let user: UserRecord | null = null;
-      const linkedId = await socials.findUserId(input.provider, profile.providerUserId);
-      if (linkedId) user = await users.findById(linkedId);
+    /**
+     * Server-side OAuth (Microsoft / Apple / X) — step 1. Returns the provider
+     * consent URL plus a signed, 10-minute state cookie carrying a nonce, the
+     * chosen role and the PKCE verifier (X only). The controller sets the
+     * cookie httpOnly and 302s the browser to the URL.
+     */
+    async oauthStart(
+      provider: OAuthProviderName,
+      role: RegistrableRole,
+    ): Promise<{ url: string; cookie: string }> {
+      const impl = oauth[provider];
+      const nonce = randomToken();
+      const codeVerifier = impl.pkce ? randomBytes(48).toString('base64url') : undefined;
+      const cookie = await new SignJWT({
+        nonce,
+        provider,
+        role,
+        ...(codeVerifier ? { cv: codeVerifier } : {}),
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setIssuer(OAUTH_STATE_ISSUER)
+        .setExpirationTime(OAUTH_STATE_TTL)
+        .sign(stateSecret());
+      const url = impl.authorizeUrl({
+        redirectUri: oauthCallbackUri(provider),
+        state: nonce,
+        codeChallenge: codeVerifier ? pkceChallenge(codeVerifier) : undefined,
+      });
+      return { url, cookie };
+    },
 
-      if (!user) {
-        const existing = await users.findByEmail(profile.email);
-        if (existing) {
-          // Email/password account — link the provider, keep its original role.
-          await socials.link(existing.id, input.provider, profile.providerUserId, {
-            firstName: existing.firstName,
-            lastName: existing.lastName,
-            email: existing.email,
-          });
-          user = existing;
-        } else {
-          user = await users.createSocial({
-            email: profile.email,
-            firstName: profile.firstName.slice(0, 30) || 'Member',
-            lastName: profile.lastName.slice(0, 30),
-            providerUserId: profile.providerUserId,
-            role: input.role,
-            registeredIp: ip ?? null,
-          });
-          await socials.link(user.id, input.provider, profile.providerUserId, {
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-          });
-        }
+    /**
+     * Step 2 — the provider redirects here. Verifies the state cookie against
+     * the query `state`, exchanges the code through the provider adapter and
+     * finishes through the shared social-login flow.
+     */
+    async oauthCallback(
+      provider: OAuthProviderName,
+      params: {
+        code?: string | undefined;
+        state?: string | undefined;
+        cookie?: string | undefined;
+        userJson?: unknown;
+        error?: string | undefined;
+      },
+      ip?: string,
+    ): Promise<AuthResult> {
+      const impl = oauth[provider];
+      if (params.error) {
+        throw new AppError(
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.OAUTH_DENIED,
+          `${provider} sign-in was cancelled or denied`,
+        );
       }
-
-      assertCanLogin(user);
-      await users.touchLastLogin(user.id);
-      return { user: toPublic(user), tokens: await issueTokenPair(user) };
+      if (!params.cookie) {
+        throw AppError.badRequest('OAuth session is missing — start the sign-in again');
+      }
+      let claims;
+      try {
+        ({ payload: claims } = await jwtVerify(params.cookie, stateSecret(), {
+          issuer: OAUTH_STATE_ISSUER,
+        }));
+      } catch {
+        throw AppError.badRequest('OAuth session expired — start the sign-in again');
+      }
+      if (!params.state || claims.nonce !== params.state || claims.provider !== provider) {
+        throw AppError.badRequest('Invalid OAuth state — start the sign-in again');
+      }
+      if (!params.code) {
+        throw AppError.badRequest('Missing OAuth authorization code');
+      }
+      const role: RegistrableRole = claims.role === 'guide' ? 'guide' : 'member';
+      const profile = await impl.exchange({
+        code: params.code,
+        redirectUri: oauthCallbackUri(provider),
+        codeVerifier: typeof claims.cv === 'string' ? claims.cv : undefined,
+        userJson: params.userJson,
+      });
+      return completeSocialLogin(provider, profile, role, ip);
     },
 
     async refresh(refreshToken: string): Promise<AuthResult> {
@@ -358,4 +489,5 @@ export const authService = createAuthService({
   mail: mailSender,
   socials: socialAccountRepository,
   verifier: googleVerifier,
+  oauth: oauthProviders,
 });

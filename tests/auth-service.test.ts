@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { USER_ROLES } from '../src/common/constants/auth.constants.js';
 import { AppError } from '../src/common/errors/app-error.js';
 import type { MailMessage, MailSender } from '../src/integrations/mail/mail-sender.interface.js';
+import type {
+  OAuthProvider,
+  OAuthProviderRegistry,
+} from '../src/integrations/social/oauth-providers.js';
 import type { SocialTokenVerifier } from '../src/integrations/social/social-verifier.interface.js';
 import type {
   AuthTokenType,
@@ -153,7 +157,43 @@ function fakeVerifier(profile: SocialProfile | null = GOOGLE_PROFILE): SocialTok
   };
 }
 
-/** Same call shape the pre-social tests used — socials/verifier faked by default. */
+/** Redirect-flow fake: records exchange() params; twitter carries pkce like the real impl. */
+function fakeOAuth(profile: SocialProfile = OAUTH_PROFILE) {
+  const exchanged: {
+    code: string;
+    redirectUri: string;
+    codeVerifier?: string | undefined;
+    userJson?: unknown;
+  }[] = [];
+  const impl: OAuthProvider = {
+    pkce: false,
+    authorizeUrl({ redirectUri, state }) {
+      return `https://provider.test/authorize?redirect_uri=${encodeURIComponent(
+        redirectUri,
+      )}&state=${state}`;
+    },
+    async exchange(params) {
+      exchanged.push(params);
+      return profile;
+    },
+  };
+  const oauth: OAuthProviderRegistry = {
+    microsoft: impl,
+    apple: impl,
+    twitter: { ...impl, pkce: true },
+  };
+  return { oauth, exchanged };
+}
+
+const OAUTH_PROFILE: SocialProfile = {
+  providerUserId: 'ms-object-999',
+  email: 'oauth@example.com',
+  emailVerified: true,
+  firstName: 'OAuth',
+  lastName: 'Person',
+};
+
+/** Same call shape the pre-social tests used — socials/verifier/oauth faked by default. */
 function makeService(users: UserRepository, tokens: TokenRepository, mail: MailSender) {
   return createAuthService({
     users,
@@ -161,6 +201,7 @@ function makeService(users: UserRepository, tokens: TokenRepository, mail: MailS
     mail,
     socials: fakeSocials().socials,
     verifier: fakeVerifier(),
+    oauth: fakeOAuth().oauth,
   });
 }
 
@@ -447,7 +488,14 @@ describe('social login', () => {
     const { tokens } = fakeTokens();
     const { mail } = fakeMail();
     const { socials, links } = fakeSocials();
-    const svc = createAuthService({ users, tokens, mail, socials, verifier: fakeVerifier() });
+    const svc = createAuthService({
+      users,
+      tokens,
+      mail,
+      socials,
+      verifier: fakeVerifier(),
+      oauth: fakeOAuth().oauth,
+    });
 
     const res = await svc.socialLogin(INPUT, '10.0.0.1');
 
@@ -479,6 +527,7 @@ describe('social login', () => {
       mail: fakeMail().mail,
       socials,
       verifier: fakeVerifier(),
+      oauth: fakeOAuth().oauth,
     });
 
     const res = await svc.socialLogin(INPUT);
@@ -508,6 +557,7 @@ describe('social login', () => {
       mail: fakeMail().mail,
       socials,
       verifier: fakeVerifier(),
+      oauth: fakeOAuth().oauth,
     });
 
     const res = await svc.socialLogin(INPUT);
@@ -526,6 +576,7 @@ describe('social login', () => {
       mail: fakeMail().mail,
       socials,
       verifier: fakeVerifier({ ...GOOGLE_PROFILE, emailVerified: false }),
+      oauth: fakeOAuth().oauth,
     });
     await expect(unverified.socialLogin(INPUT)).rejects.toMatchObject({ statusCode: 401 });
 
@@ -535,6 +586,7 @@ describe('social login', () => {
       mail: fakeMail().mail,
       socials,
       verifier: fakeVerifier(null),
+      oauth: fakeOAuth().oauth,
     });
     await expect(badToken.socialLogin(INPUT)).rejects.toMatchObject({ statusCode: 401 });
   });
@@ -556,8 +608,161 @@ describe('social login', () => {
       mail: fakeMail().mail,
       socials: fakeSocials().socials,
       verifier: fakeVerifier(),
+      oauth: fakeOAuth().oauth,
     });
 
     await expect(svc.socialLogin(INPUT)).rejects.toMatchObject({ statusCode: 403 });
+  });
+});
+
+describe('oauth redirect flow', () => {
+  function makeOauthService(profile: SocialProfile = OAUTH_PROFILE) {
+    const { users, rows } = fakeUsers();
+    const { tokens } = fakeTokens();
+    const { mail } = fakeMail();
+    const { socials, links } = fakeSocials();
+    const { oauth, exchanged } = fakeOAuth(profile);
+    const svc = createAuthService({
+      users,
+      tokens,
+      mail,
+      socials,
+      verifier: fakeVerifier(),
+      oauth,
+    });
+    return { svc, rows, links, exchanged };
+  }
+
+  const startState = (url: string) => new URL(url).searchParams.get('state')!;
+
+  it('oauthStart returns the provider consent URL and a signed state cookie', async () => {
+    const { svc } = makeOauthService();
+    const { url, cookie } = await svc.oauthStart('microsoft', 'guide');
+
+    const redirect = new URL(url);
+    expect(redirect.hostname).toBe('provider.test');
+    expect(redirect.searchParams.get('redirect_uri')).toContain(
+      '/api/v1/auth/oauth/microsoft/callback',
+    );
+
+    const claims = decodeJwt(cookie);
+    expect(claims.iss).toBe('worldtaker-oauth');
+    expect(claims.provider).toBe('microsoft');
+    expect(claims.role).toBe('guide');
+    expect(claims.nonce).toBe(startState(url));
+    expect(claims.exp).toBeTruthy();
+  });
+
+  it('oauthCallback verifies state, exchanges the code and creates + links the account', async () => {
+    const { svc, rows, links, exchanged } = makeOauthService();
+    const { url, cookie } = await svc.oauthStart('microsoft', 'guide');
+
+    const res = await svc.oauthCallback(
+      'microsoft',
+      { code: 'auth-code', state: startState(url), cookie },
+      '10.0.0.2',
+    );
+
+    expect(res.user.email).toBe('oauth@example.com');
+    expect(res.user.role).toBe('guide'); // role carried through the signed state
+    expect(res.tokens.accessToken).toBeTruthy();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.status).toBe('active'); // skips email activation
+    expect(links).toEqual([
+      { userId: rows[0]!.id, provider: 'microsoft', providerUserId: 'ms-object-999' },
+    ]);
+    expect(exchanged[0]).toMatchObject({
+      code: 'auth-code',
+      redirectUri: expect.stringContaining('/auth/oauth/microsoft/callback'),
+    });
+  });
+
+  it('carries the PKCE verifier through the signed state for X', async () => {
+    const { svc, exchanged } = makeOauthService();
+    const { url, cookie } = await svc.oauthStart('twitter', 'member');
+
+    const cv = (decodeJwt(cookie) as { cv?: string }).cv;
+    expect(cv).toBeTruthy();
+
+    await svc.oauthCallback('twitter', { code: 'x-code', state: startState(url), cookie });
+    expect(exchanged[0]!.codeVerifier).toBe(cv);
+  });
+
+  it('rejects a missing or tampered state cookie', async () => {
+    const { svc } = makeOauthService();
+    const { url, cookie } = await svc.oauthStart('microsoft', 'member');
+    const state = startState(url);
+
+    // no cookie at all
+    await expect(
+      svc.oauthCallback('microsoft', { code: 'c', state }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    // tampered cookie fails JWT verification
+    await expect(
+      svc.oauthCallback('microsoft', { code: 'c', state, cookie: `${cookie}x` }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('rejects a state/provider mismatch and a missing code', async () => {
+    const { svc } = makeOauthService();
+    const { url, cookie } = await svc.oauthStart('microsoft', 'member');
+
+    // query state does not match the cookie nonce
+    await expect(
+      svc.oauthCallback('microsoft', { code: 'c', state: 'forged', cookie }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+
+    // cookie was minted for microsoft — replaying it on apple fails
+    await expect(
+      svc.oauthCallback('apple', { code: 'c', state: startState(url), cookie }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+
+    // state checks out but the provider sent no code
+    await expect(
+      svc.oauthCallback('microsoft', { state: startState(url), cookie }),
+    ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining('code') });
+  });
+
+  it('rejects a provider-side denial (?error=access_denied)', async () => {
+    const { svc } = makeOauthService();
+    const { url, cookie } = await svc.oauthStart('microsoft', 'member');
+
+    await expect(
+      svc.oauthCallback('microsoft', {
+        state: startState(url),
+        cookie,
+        error: 'access_denied',
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('creates an account with a placeholder email when the provider returns none (X)', async () => {
+    const { svc, rows, links } = makeOauthService({
+      providerUserId: 'x-user-42',
+      email: null,
+      emailVerified: false,
+      firstName: 'Xperson',
+      lastName: '',
+    });
+    const { url, cookie } = await svc.oauthStart('twitter', 'member');
+
+    const res = await svc.oauthCallback('twitter', {
+      code: 'x-code',
+      state: startState(url),
+      cookie,
+    });
+
+    expect(res.user.email).toBe('x-user-42@twitter.oauth.local');
+    expect(rows[0]!.email).toBe('x-user-42@twitter.oauth.local');
+    expect(links[0]!.providerUserId).toBe('x-user-42');
+  });
+
+  it('rejects a provider identity whose real email is unverified', async () => {
+    const { svc } = makeOauthService({ ...OAUTH_PROFILE, emailVerified: false });
+    const { url, cookie } = await svc.oauthStart('microsoft', 'member');
+
+    await expect(
+      svc.oauthCallback('microsoft', { code: 'c', state: startState(url), cookie }),
+    ).rejects.toMatchObject({ statusCode: 401 });
   });
 });

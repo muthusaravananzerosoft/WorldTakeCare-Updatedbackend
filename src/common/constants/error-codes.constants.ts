@@ -12,6 +12,8 @@ export const ERROR_CODES = {
   ACCOUNT_SUSPENDED: 'ACCOUNT_SUSPENDED',
   INVALID_TOKEN: 'INVALID_TOKEN',
   FORBIDDEN: 'FORBIDDEN',
+  /** Provider denied consent (e.g. user pressed Cancel on the consent screen). */
+  OAUTH_DENIED: 'OAUTH_DENIED',
   CORS_NOT_ALLOWED: 'CORS_NOT_ALLOWED',
   NOT_FOUND: 'NOT_FOUND',
   ROUTE_NOT_FOUND: 'ROUTE_NOT_FOUND',
