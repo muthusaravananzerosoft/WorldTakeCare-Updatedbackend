@@ -17,18 +17,16 @@ export const profileController = {
   },
 
   async update(req: Request, res: Response) {
+    const uploaded = req.files as
+      | { profileImage?: Express.Multer.File[]; coverImage?: Express.Multer.File[] }
+      | undefined;
     sendSuccess(
       req,
       res,
-      await profileService.updateProfile(req.user!.id, body<UpdateProfileInput>(res)),
+      await profileService.updateProfile(req.user!.id, body<UpdateProfileInput>(res), {
+        profileImage: uploaded?.profileImage?.[0],
+        coverImage: uploaded?.coverImage?.[0],
+      }),
     );
-  },
-
-  async uploadPhoto(req: Request, res: Response) {
-    sendSuccess(req, res, await profileService.uploadPhoto(req.user!.id, req.file));
-  },
-
-  async deletePhoto(req: Request, res: Response) {
-    sendSuccess(req, res, await profileService.deletePhoto(req.user!.id));
   },
 };

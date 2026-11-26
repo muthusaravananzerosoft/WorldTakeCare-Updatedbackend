@@ -38,6 +38,12 @@ export interface ProfileServiceDeps {
   storage: MediaStorage;
 }
 
+/** Optional image files carried by a multipart PUT /users/me/profile. */
+export interface ProfileImageFiles {
+  profileImage?: Express.Multer.File | undefined;
+  coverImage?: Express.Multer.File | undefined;
+}
+
 // ---- row → API mapping ------------------------------------------------------
 
 function epochToIsoDate(epoch: number | null): string | null {
@@ -147,6 +153,7 @@ export function createProfileService(deps: ProfileServiceDeps) {
 
     return {
       profileImage: row.profile_img || null,
+      coverImage: row.img || null,
       personal: {
         firstName: row.fname,
         lastName: row.lname,
@@ -223,8 +230,8 @@ export function createProfileService(deps: ProfileServiceDeps) {
   function collectCountryCodes(input: UpdateProfileInput): string[] {
     const codes = new Set<string>();
     const p = input.personal;
-    if (p.countryOfBirth) codes.add(p.countryOfBirth);
-    p.nationalities?.forEach((c) => codes.add(c));
+    if (p?.countryOfBirth) codes.add(p.countryOfBirth);
+    p?.nationalities?.forEach((c) => codes.add(c));
     if (input.location?.primary?.countryCode) codes.add(input.location.primary.countryCode);
     if (input.location?.secondary?.countryCode) codes.add(input.location.secondary.countryCode);
     input.visitedCountries?.forEach((v) => codes.add(v.countryCode));
@@ -335,27 +342,53 @@ export function createProfileService(deps: ProfileServiceDeps) {
     return columns;
   }
 
+  /**
+   * Stores or clears one image column inside the profile save. Returns the
+   * new column value plus which storage keys became fresh/stale — undefined
+   * when the image wasn't touched.
+   */
+  async function imageColumn(
+    userId: number,
+    file: Express.Multer.File | undefined,
+    remove: boolean | undefined,
+    current: string | null,
+    dir: 'member-photos' | 'member-covers',
+  ): Promise<{ value: string | null; storedKey: string | null; oldKey: string | null } | undefined> {
+    if (!file && !remove) return undefined;
+    const oldKey = keyFromStoredUrl(current);
+    if (!file) return { value: null, storedKey: null, oldKey };
+    const { file: image, ...type } = validateImageUpload(file);
+    const key = `${dir}/${userId}/${randomUUID()}.${type.ext}`;
+    const stored = await storage.put(key, image.buffer, type.mime);
+    return { value: stored.url, storedKey: stored.key, oldKey };
+  }
+
   return {
     async getProfile(userId: number) {
       return { profile: await assembleProfile(userId) };
     },
 
-    async updateProfile(userId: number, input: UpdateProfileInput) {
+    async updateProfile(
+      userId: number,
+      input: UpdateProfileInput,
+      files: ProfileImageFiles = {},
+    ) {
       const existing = await profiles.findProfileRow(userId);
       if (!existing) throw AppError.notFound('User not found');
 
       const countries = await resolveCountries(collectCountryCodes(input));
 
       // Reference-id validation for the nullable id fields.
-      const p = input.personal;
-      const checks: [number | null | undefined, (id: number) => Promise<boolean>, string][] = [
-        [p.raceId, reference.raceExists, 'raceId'],
-        [p.heightId, reference.heightExists, 'heightId'],
-        [p.educationId, reference.educationExists, 'educationId'],
-      ];
-      for (const [id, exists, field] of checks) {
-        if (id !== undefined && id !== null && !(await exists(id))) {
-          throw AppError.badRequest(`Unknown ${field}`, { field });
+      if (input.personal) {
+        const checks: [number | null | undefined, (id: number) => Promise<boolean>, string][] = [
+          [input.personal.raceId, reference.raceExists, 'raceId'],
+          [input.personal.heightId, reference.heightExists, 'heightId'],
+          [input.personal.educationId, reference.educationExists, 'educationId'],
+        ];
+        for (const [id, exists, field] of checks) {
+          if (id !== undefined && id !== null && !(await exists(id))) {
+            throw AppError.badRequest(`Unknown ${field}`, { field });
+          }
         }
       }
 
@@ -367,7 +400,7 @@ export function createProfileService(deps: ProfileServiceDeps) {
       const stateRows = await reference.findStatesByIds([...stateIds]);
       const statesByIds = new Map(stateRows.map((s) => [s.id, s]));
 
-      const columns = { ...personalColumns(p, countries) };
+      const columns = input.personal ? personalColumns(input.personal, countries) : {};
 
       if (input.location?.primary) {
         Object.assign(
@@ -425,37 +458,42 @@ export function createProfileService(deps: ProfileServiceDeps) {
         visiting = [...new Set(input.visitingCountries.map((c) => countries.get(c)!.id))];
       }
 
-      await profiles.saveProfile(userId, { columns, visited, visiting });
+      // Profile photo + cover image — multipart files win over remove flags.
+      // New files are stored before the save; old files are deleted after it.
+      const photo = await imageColumn(
+        userId,
+        files.profileImage,
+        input.removeProfileImage,
+        existing.profile_img,
+        'member-photos',
+      );
+      if (photo) columns.profile_img = photo.value;
+      const cover = await imageColumn(
+        userId,
+        files.coverImage,
+        input.removeCoverImage,
+        existing.img,
+        'member-covers',
+      );
+      if (cover) columns.img = cover.value;
+
+      const storedKeys = [photo?.storedKey, cover?.storedKey].filter(
+        (k): k is string => k !== null && k !== undefined,
+      );
+      const staleKeys = [photo?.oldKey, cover?.oldKey].filter(
+        (k): k is string => k !== null && k !== undefined,
+      );
+
+      try {
+        await profiles.saveProfile(userId, { columns, visited, visiting });
+      } catch (err) {
+        // Save failed — don't orphan the freshly stored files.
+        for (const key of storedKeys) await storage.delete(key).catch(() => undefined);
+        throw err;
+      }
+      for (const key of staleKeys) await storage.delete(key).catch(() => undefined);
+
       return { message: 'Profile updated', profile: await assembleProfile(userId) };
-    },
-
-    /**
-     * Member profile photo (user.profile_img). Upload-then-swap: the new file
-     * is stored and the column updated before the old file is removed.
-     */
-    async uploadPhoto(userId: number, file: Express.Multer.File | undefined) {
-      const { file: image, ...type } = validateImageUpload(file);
-      const row = await profiles.findProfileRow(userId);
-      if (!row) throw AppError.notFound('User not found');
-      const oldKey = keyFromStoredUrl(row.profile_img);
-
-      const key = `member-photos/${userId}/${randomUUID()}.${type.ext}`;
-      const stored = await storage.put(key, image.buffer, type.mime);
-      await profiles.setProfileImage(userId, stored.url);
-      if (oldKey) await storage.delete(oldKey).catch(() => undefined);
-
-      return { message: 'Profile photo updated', profileImage: stored.url };
-    },
-
-    async deletePhoto(userId: number) {
-      const row = await profiles.findProfileRow(userId);
-      if (!row) throw AppError.notFound('User not found');
-      const key = keyFromStoredUrl(row.profile_img);
-
-      await profiles.setProfileImage(userId, null);
-      if (key) await storage.delete(key).catch(() => undefined);
-
-      return { message: 'Profile photo removed', profileImage: null };
     },
 
     /** Public homepage list — newest active members (guides/admins excluded). */

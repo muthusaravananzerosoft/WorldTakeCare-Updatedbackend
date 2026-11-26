@@ -251,13 +251,35 @@ export const openApiDocument = {
       put: {
         tags: ['users'],
         summary:
-          'Save the whole member profile in one call (legacy account page). Only the `personal` section is required; location/visited/visiting sections replace their stored values when present.',
+          'Save the member profile in one call (legacy account page) — text sections, profile photo and cover image together. Send JSON for text-only updates; send multipart/form-data with a `profile` JSON field plus optional `profileImage`/`coverImage` files to change images. removeProfileImage/removeCoverImage flags clear them.',
         operationId: 'updateMyProfile',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
             'application/json': { schema: { $ref: '#/components/schemas/UpdateProfileRequest' } },
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  profile: {
+                    type: 'string',
+                    description:
+                      'UpdateProfileRequest JSON as a string; may be {} for image-only updates',
+                  },
+                  profileImage: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'New profile photo (user.profile_img); JPG/PNG/WebP, max 2 MB',
+                  },
+                  coverImage: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'New cover/avatar image (user.img); JPG/PNG/WebP, max 2 MB',
+                  },
+                },
+              },
+            },
           },
         },
         responses: {
@@ -269,63 +291,7 @@ export const openApiDocument = {
           },
           '400': { description: 'Validation failed, unknown references or state↔country mismatch' },
           '401': { description: 'Missing or invalid access token' },
-        },
-      },
-    },
-    '/users/me/profile/photo': {
-      post: {
-        tags: ['users'],
-        summary:
-          'Upload or replace the member profile photo (user.profile_img). Multipart field `file`; JPG/PNG/WebP, max 2 MB, real signature checked.',
-        operationId: 'uploadMyProfilePhoto',
-        security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'multipart/form-data': {
-              schema: {
-                type: 'object',
-                required: ['file'],
-                properties: { file: { type: 'string', format: 'binary' } },
-              },
-            },
-          },
-        },
-        responses: {
-          '200': {
-            description: 'Photo stored — returns the public URL',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: { type: 'boolean', const: true },
-                    data: {
-                      type: 'object',
-                      properties: {
-                        message: { type: 'string', example: 'Profile photo updated' },
-                        profileImage: { type: 'string', format: 'uri' },
-                      },
-                    },
-                    meta: { $ref: '#/components/schemas/ResponseMeta' },
-                  },
-                },
-              },
-            },
-          },
-          '400': { description: 'Missing file or image over 2 MB' },
-          '401': { description: 'Missing or invalid access token' },
-          '415': { description: 'File is not a valid JPG/PNG/WebP image' },
-        },
-      },
-      delete: {
-        tags: ['users'],
-        summary: 'Remove the member profile photo (clears user.profile_img and deletes the file).',
-        operationId: 'deleteMyProfilePhoto',
-        security: [{ bearerAuth: [] }],
-        responses: {
-          '200': { description: 'Photo removed; profileImage is null' },
-          '401': { description: 'Missing or invalid access token' },
+          '415': { description: 'An uploaded file is not a valid JPG/PNG/WebP image' },
         },
       },
     },
@@ -1006,7 +972,6 @@ export const openApiDocument = {
       },
       UpdateProfileRequest: {
         type: 'object',
-        required: ['personal'],
         properties: {
           personal: { $ref: '#/components/schemas/PersonalInput' },
           location: {
@@ -1033,6 +998,14 @@ export const openApiDocument = {
             maxItems: 2,
             description: 'Up to two ISO country codes; [] clears the selection',
             items: { type: 'string', minLength: 2, maxLength: 2 },
+          },
+          removeProfileImage: {
+            type: 'boolean',
+            description: 'Clears the profile photo (user.profile_img)',
+          },
+          removeCoverImage: {
+            type: 'boolean',
+            description: 'Clears the cover/avatar image (user.img)',
           },
         },
       },

@@ -23,6 +23,7 @@ function baseRow(overrides: Partial<ProfileUserRow> = {}): ProfileUserRow {
     fname: 'Muthu',
     lname: 'G',
     profile_img: null,
+    img: null,
     sex: 1,
     dob: 631152000, // 1990-01-01 UTC
     marital_status: 1,
@@ -84,7 +85,6 @@ function fakeProfiles(row: ProfileUserRow | null = baseRow()) {
       c2_name: 'Canada',
     })),
     saveProfile: vi.fn(async (_id: number, w: ProfileWrite) => void writes.push(w)),
-    setProfileImage: vi.fn(async () => undefined),
     findNewestMembers: vi.fn(async () => [
       {
         use_id: 864,
@@ -329,9 +329,12 @@ describe('profile service', () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  it('uploads a profile photo, stores the URL and removes the old file', async () => {
-    const oldUrl = 'https://api.test/uploads/member-photos/861/old.jpg';
-    const { profiles } = fakeProfiles(baseRow({ profile_img: oldUrl }));
+  it('stores a profile photo and cover image inside the profile save', async () => {
+    const oldPhoto = 'https://api.test/uploads/member-photos/861/old.jpg';
+    const oldCover = 'https://api.test/uploads/member-covers/861/old.jpg';
+    const { profiles, writes } = fakeProfiles(
+      baseRow({ profile_img: oldPhoto, img: oldCover }),
+    );
     const { storage, deleted } = fakeStorage();
     const svc = createProfileService({ profiles, reference: fakeReference(), storage });
 
@@ -341,29 +344,40 @@ describe('profile service', () => {
     ]);
     const file = { mimetype: 'image/png', buffer: png, size: png.length } as Express.Multer.File;
 
-    const result = await svc.uploadPhoto(861, file);
+    await svc.updateProfile(861, {}, { profileImage: file, coverImage: file });
 
-    expect(result.profileImage).toMatch(
+    const w = writes[0]!;
+    expect(w.columns.profile_img).toMatch(
       /^https:\/\/api\.test\/uploads\/member-photos\/861\/.+\.png$/,
     );
-    expect(profiles.setProfileImage).toHaveBeenCalledWith(861, result.profileImage);
-    expect(deleted).toEqual(['member-photos/861/old.jpg']);
+    expect(w.columns.img).toMatch(/^https:\/\/api\.test\/uploads\/member-covers\/861\/.+\.png$/);
+    // Old files are deleted only after the save succeeded.
+    expect(deleted).toEqual(['member-photos/861/old.jpg', 'member-covers/861/old.jpg']);
   });
 
-  it('deletes the profile photo and clears the column', async () => {
-    const url = 'https://api.test/uploads/member-photos/861/pic.jpg';
-    const { profiles } = fakeProfiles(baseRow({ profile_img: url }));
+  it('clears images via remove flags and leaves them untouched otherwise', async () => {
+    const { profiles, writes } = fakeProfiles(
+      baseRow({
+        profile_img: 'https://api.test/uploads/member-photos/861/pic.jpg',
+        img: 'https://api.test/uploads/member-covers/861/pic.jpg',
+      }),
+    );
     const { storage, deleted } = fakeStorage();
     const svc = createProfileService({ profiles, reference: fakeReference(), storage });
 
-    const result = await svc.deletePhoto(861);
+    await svc.updateProfile(861, { removeProfileImage: true, removeCoverImage: true });
 
-    expect(result.profileImage).toBeNull();
-    expect(profiles.setProfileImage).toHaveBeenCalledWith(861, null);
-    expect(deleted).toEqual(['member-photos/861/pic.jpg']);
+    expect(writes[0]!.columns.profile_img).toBeNull();
+    expect(writes[0]!.columns.img).toBeNull();
+    expect(deleted).toEqual(['member-photos/861/pic.jpg', 'member-covers/861/pic.jpg']);
+
+    // No files and no flags → image columns are not part of the UPDATE.
+    await svc.updateProfile(861, { personal: { firstName: 'A', lastName: 'B' } });
+    expect(writes[1]!.columns.profile_img).toBeUndefined();
+    expect(writes[1]!.columns.img).toBeUndefined();
   });
 
-  it('rejects photo upload without a file or with a fake signature', async () => {
+  it('rejects a fake image signature inside the merged save', async () => {
     const { profiles } = fakeProfiles();
     const svc = createProfileService({
       profiles,
@@ -371,14 +385,14 @@ describe('profile service', () => {
       storage: fakeStorage().storage,
     });
 
-    await expect(svc.uploadPhoto(861, undefined)).rejects.toMatchObject({ statusCode: 400 });
-
     const fake = {
       mimetype: 'image/png',
       buffer: Buffer.from('not an image at all'),
       size: 20,
     } as Express.Multer.File;
-    await expect(svc.uploadPhoto(861, fake)).rejects.toMatchObject({ statusCode: 415 });
+    await expect(
+      svc.updateProfile(861, {}, { coverImage: fake }),
+    ).rejects.toMatchObject({ statusCode: 415 });
   });
 
   it('lists newest members as homepage cards with resolved country, age and online flag', async () => {

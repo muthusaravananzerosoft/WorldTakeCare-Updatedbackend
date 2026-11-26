@@ -79,13 +79,18 @@ export interface VisitedCountryInput {
 }
 
 export interface UpdateProfileInput {
-  personal: PersonalInput;
+  /** Optional so a multipart PUT can carry only image changes. */
+  personal?: PersonalInput;
   location?: {
     primary?: LocationInput;
     secondary?: LocationInput;
   };
   visitedCountries?: VisitedCountryInput[];
   visitingCountries?: string[];
+  /** Clears user.profile_img (ignored when a new profileImage file is sent). */
+  removeProfileImage?: boolean;
+  /** Clears user.img — the profile cover/avatar image. */
+  removeCoverImage?: boolean;
 }
 
 // ---- Output (GET response / PUT echo) -------------------------------------
@@ -129,6 +134,8 @@ export interface VisitedCountry {
 export interface MemberProfile {
   /** Absolute URL of the member's profile photo (user.profile_img). */
   profileImage: string | null;
+  /** Absolute URL of the cover/avatar image shown on the profile page (user.img). */
+  coverImage: string | null;
   personal: PersonalProfile;
   location: {
     primary: LocationProfile;

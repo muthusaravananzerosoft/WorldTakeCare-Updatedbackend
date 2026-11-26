@@ -82,11 +82,11 @@ const visitedCountrySchema = z.object({
 
 /**
  * PUT /users/me/profile — one save covering all legacy account-page
- * sections. `personal` is always required (first/last name are mandatory);
- * the other sections are replaced wholesale when present.
+ * sections. `personal` is optional so a multipart PUT can carry only image
+ * changes; the other sections are replaced wholesale when present.
  */
 export const updateProfileSchema = z.object({
-  personal: personalSchema,
+  personal: personalSchema.optional(),
   location: z
     .object({
       primary: locationSchema.optional(),
@@ -98,6 +98,8 @@ export const updateProfileSchema = z.object({
     .array(countryCodeSchema)
     .max(MAX_VISITING_COUNTRIES, 'Select at most two countries')
     .optional(),
+  removeProfileImage: z.boolean().optional(),
+  removeCoverImage: z.boolean().optional(),
 });
 
 /** GET /users/newest — public homepage list; legacy shows 15. */

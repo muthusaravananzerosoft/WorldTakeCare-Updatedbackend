@@ -11,6 +11,8 @@ export interface ProfileUserRow {
   fname: string;
   lname: string;
   profile_img: string | null;
+  /** Cover/avatar image shown on the profile page (users/{id}/avata/ in legacy). */
+  img: string | null;
   sex: number;
   dob: number | null;
   marital_status: number;
@@ -98,13 +100,11 @@ export interface ProfileRepository {
   findVisiting(userId: number): Promise<VisitingRow | null>;
   /** user UPDATE + visited replace + visiting upsert in one transaction. */
   saveProfile(userId: number, write: ProfileWrite): Promise<void>;
-  /** Sets user.profile_img to the stored media URL (or NULL to clear). */
-  setProfileImage(userId: number, url: string | null): Promise<void>;
   /** Newest active members for the public homepage list (members only). */
   findNewestMembers(limit: number): Promise<NewestMemberRow[]>;
 }
 
-const PROFILE_SELECT = `SELECT u.fname, u.lname, u.profile_img, u.sex, u.dob, u.marital_status, u.languages, u.\`other\`,
+const PROFILE_SELECT = `SELECT u.fname, u.lname, u.profile_img, u.img, u.sex, u.dob, u.marital_status, u.languages, u.\`other\`,
        u.looking_to_meet, u.write_something, u.about,
        u.fdob_con_id, u.frac_id, u.reli_id, u.other_religion, u.fhei_id, u.fedu_id,
        u.fdob_nationality_id,
@@ -164,13 +164,6 @@ export const profileRepository: ProfileRepository = {
       [userId],
     );
     return rows[0] ?? null;
-  },
-
-  async setProfileImage(userId, url) {
-    await databaseClient.execute('UPDATE `user` SET profile_img = ? WHERE use_id = ?', [
-      url,
-      userId,
-    ]);
   },
 
   async findNewestMembers(limit) {
