@@ -1,5 +1,10 @@
 import { databaseClient, type MysqlTransactionContext } from '../database/client.js';
-import type { CountryRef } from '../entities/profile.types.js';
+import { maritalStatusId, sexId, traitId } from '../common/constants/profile.constants.js';
+import type {
+  CountryRef,
+  MemberDiscoveryFilters,
+  MemberDiscoveryRow,
+} from '../entities/profile.types.js';
 
 /**
  * Persistence for the member profile across the legacy `user` columns,
@@ -70,6 +75,14 @@ export interface VisitingRow {
   c2_name: string | null;
 }
 
+/** PROFILE_SELECT row plus public-detail fields (username, online flag). */
+export interface PublicMemberRow extends ProfileUserRow {
+  use_id: number;
+  username: string | null;
+  /** 0/1 — row exists in online_users. */
+  online: number;
+}
+
 export interface NewestMemberRow {
   use_id: number;
   username: string | null;
@@ -83,6 +96,11 @@ export interface NewestMemberRow {
   con_name: string | null;
   /** 0/1 — row exists in online_users. */
   online: number;
+}
+
+export interface MemberDiscoveryPage {
+  items: MemberDiscoveryRow[];
+  totalItems: number;
 }
 
 /** Writes for one save; absent/undefined sections are left untouched. */
@@ -102,6 +120,17 @@ export interface ProfileRepository {
   saveProfile(userId: number, write: ProfileWrite): Promise<void>;
   /** Newest active members for the public homepage list (members only). */
   findNewestMembers(limit: number): Promise<NewestMemberRow[]>;
+  /**
+   * Public member detail row — null when the user is missing, inactive,
+   * deleted, suspended, hidden (marital_status 9) or not a member.
+   */
+  findPublicMemberRow(userId: number): Promise<PublicMemberRow | null>;
+  /** Public member discovery page; guides, admins and hidden profiles excluded. */
+  findDiscoveryPage(
+    filters: MemberDiscoveryFilters,
+    page: number,
+    limit: number,
+  ): Promise<MemberDiscoveryPage>;
 }
 
 const PROFILE_SELECT = `SELECT u.fname, u.lname, u.profile_img, u.img, u.sex, u.dob, u.marital_status, u.languages, u.\`other\`,
@@ -124,6 +153,172 @@ const PROFILE_SELECT = `SELECT u.fname, u.lname, u.profile_img, u.img, u.sex, u.
   LEFT JOIN countries c2 ON c2.con_id = u.fadd2_con_id
   LEFT JOIN country_states s2 ON s2.sta_id = u.fadd2_sta_id
   WHERE u.use_id = ?`;
+
+const DISCOVERY_FROM = `FROM \`user\` u
+  LEFT JOIN countries c1 ON c1.con_id = u.fadd1_con_id
+  LEFT JOIN countries c2 ON c2.con_id = u.fadd2_con_id
+  LEFT JOIN country_states s1 ON s1.sta_id = u.fadd1_sta_id
+  LEFT JOIN country_states s2 ON s2.sta_id = u.fadd2_sta_id`;
+
+function ageCutoffEpoch(years: number): number {
+  const now = new Date();
+  const year = now.getUTCFullYear() - years;
+  const month = now.getUTCMonth();
+  const day = Math.min(now.getUTCDate(), new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+  return Math.floor(Date.UTC(year, month, day) / 1000);
+}
+
+function containsPattern(value: string): string {
+  return `%${value.replace(/[!%_]/g, '!$&')}%`;
+}
+
+/**
+ * Member-role clause shared by discovery and the public detail view —
+ * role column wins; legacy rows may have role NULL so fall back to the
+ * roles tinyint (1 = admin), mirroring mapRole() in user.repository.
+ */
+const MEMBER_ROLE_CLAUSE = `((u.role IN ('member', 'user') OR
+       (u.role IS NULL AND COALESCE(u.roles, 3) <> 1))
+       AND COALESCE(u.roles, 3) <> 1)`;
+
+/**
+ * Public member detail — PROFILE_SELECT plus the discovery visibility
+ * rules (active, not deleted/suspended/hidden, member role) and the
+ * online_users flag used for the "online" dot.
+ */
+const PUBLIC_MEMBER_SELECT = PROFILE_SELECT.replace(
+  'SELECT u.fname,',
+  'SELECT u.use_id, u.username, (o.is_member IS NOT NULL) AS online, u.fname,',
+).replace(
+  'WHERE u.use_id = ?',
+  `LEFT JOIN online_users o ON o.is_member = u.use_id
+   WHERE u.use_id = ?
+     AND u.active = 1 AND u.isdel = 0 AND u.suspend = 0
+     AND u.marital_status <> 9
+     AND ${MEMBER_ROLE_CLAUSE}`,
+);
+
+function discoveryWhere(filters: MemberDiscoveryFilters) {
+  const where = [
+    'u.active = 1',
+    'u.isdel = 0',
+    'u.suspend = 0',
+    'u.marital_status <> 9',
+    "TRIM(u.fname) <> ''",
+    "TRIM(u.lname) <> ''",
+    MEMBER_ROLE_CLAUSE,
+  ];
+  const params: unknown[] = [];
+
+  if (filters.q) {
+    const pattern = containsPattern(filters.q);
+    where.push(`(
+      LOWER(u.fname) LIKE LOWER(?) ESCAPE '!' OR
+      LOWER(u.lname) LIKE LOWER(?) ESCAPE '!' OR
+      LOWER(CONCAT(u.fname, ' ', u.lname)) LIKE LOWER(?) ESCAPE '!'
+    )`);
+    params.push(pattern, pattern, pattern);
+  }
+  if (filters.ageMin !== undefined) {
+    where.push('u.dob > 0 AND u.dob <= ?');
+    params.push(ageCutoffEpoch(filters.ageMin));
+  }
+  if (filters.ageMax !== undefined) {
+    where.push('u.dob > ?');
+    params.push(ageCutoffEpoch(filters.ageMax + 1));
+  }
+  if (filters.gender) {
+    where.push('u.sex = ?');
+    params.push(sexId(filters.gender));
+  }
+
+  if (filters.countryCode || filters.stateId !== undefined || filters.city) {
+    const locationBranches = [
+      { country: 'c1.code', state: 'u.fadd1_sta_id', city: 'u.fadd1_cit_id' },
+      { country: 'c2.code', state: 'u.fadd2_sta_id', city: 'u.fadd2_cit_id' },
+    ].map((columns) => {
+      const branch: string[] = [];
+      if (filters.countryCode) {
+        branch.push(`${columns.country} = ?`);
+        params.push(filters.countryCode);
+      }
+      if (filters.stateId !== undefined) {
+        branch.push(`${columns.state} = ?`);
+        params.push(filters.stateId);
+      }
+      if (filters.city) {
+        branch.push(`LOWER(${columns.city}) LIKE LOWER(?) ESCAPE '!'`);
+        params.push(containsPattern(filters.city));
+      }
+      return `(${branch.join(' AND ')})`;
+    });
+    where.push(`(${locationBranches.join(' OR ')})`);
+  }
+
+  if (filters.language) {
+    where.push(`FIND_IN_SET(LOWER(?), LOWER(REPLACE(u.languages, ', ', ','))) > 0`);
+    params.push(filters.language);
+  }
+  if (filters.lookingToMeet) {
+    if (filters.lookingToMeet === 'other') {
+      where.push(
+        `LOWER(TRIM(COALESCE(u.looking_to_meet, ''))) NOT IN ('', '0', 'man', 'woman', 'man or woman')`,
+      );
+    } else {
+      const stored = {
+        man: 'man',
+        woman: 'woman',
+        man_or_woman: 'man or woman',
+      }[filters.lookingToMeet];
+      where.push('LOWER(TRIM(u.looking_to_meet)) = ?');
+      params.push(stored);
+    }
+  }
+  if (filters.maritalStatus) {
+    const statusId = maritalStatusId(filters.maritalStatus);
+    if (statusId !== undefined) {
+      where.push('u.marital_status = ?');
+      params.push(statusId);
+    }
+  }
+  if (filters.raceId !== undefined) {
+    where.push('u.frac_id = ?');
+    params.push(filters.raceId);
+  }
+  if (filters.religionId !== undefined) {
+    where.push('u.reli_id = ?');
+    params.push(filters.religionId);
+  }
+  if (filters.trait) {
+    const profileTraitId = traitId(filters.trait);
+    if (profileTraitId !== undefined) {
+      where.push('FIND_IN_SET(?, u.`other`) > 0');
+      params.push(profileTraitId);
+    }
+  }
+
+  return { where: where.join(' AND '), params };
+}
+
+function discoveryOrderBy(sort: MemberDiscoveryFilters['sort']): string {
+  switch (sort) {
+    case 'newest':
+      return 'CAST(NULLIF(u.registered, \'\') AS UNSIGNED) DESC, u.use_id DESC';
+    case 'age_asc':
+      return '(u.dob IS NULL OR u.dob <= 0) ASC, u.dob DESC, u.use_id ASC';
+    case 'age_desc':
+      return '(u.dob IS NULL OR u.dob <= 0) ASC, u.dob ASC, u.use_id ASC';
+    default:
+      return `(
+        (u.profile_img IS NOT NULL AND TRIM(u.profile_img) <> '') +
+        (u.img IS NOT NULL AND TRIM(u.img) <> '') +
+        (u.dob IS NOT NULL AND u.dob > 0) +
+        (u.sex IN (1, 2)) +
+        (u.languages IS NOT NULL AND TRIM(u.languages) <> '') +
+        (u.fadd1_con_id IS NOT NULL AND u.fadd1_con_id > 0)
+      ) DESC, CAST(NULLIF(u.registered, '') AS UNSIGNED) DESC, u.use_id DESC`;
+  }
+}
 
 export const profileRepository: ProfileRepository = {
   async findProfileRow(userId) {
@@ -183,6 +378,56 @@ export const profileRepository: ProfileRepository = {
         LIMIT ?`,
       [limit],
     );
+  },
+
+  async findPublicMemberRow(userId) {
+    const rows = await databaseClient.query<PublicMemberRow>(`${PUBLIC_MEMBER_SELECT} LIMIT 1`, [
+      userId,
+    ]);
+    return rows[0] ?? null;
+  },
+
+  async findDiscoveryPage(filters, page, limit) {
+    const { where, params } = discoveryWhere(filters);
+    const countRows = await databaseClient.query<{ total: number }>(
+      `SELECT COUNT(*) AS total ${DISCOVERY_FROM} WHERE ${where}`,
+      params,
+    );
+    const offset = (page - 1) * limit;
+    const items = await databaseClient.query<MemberDiscoveryRow>(
+      `SELECT u.use_id, u.fname, u.lname, u.profile_img, u.img, u.sex, u.dob,
+              u.marital_status, u.languages, u.\`other\`, u.looking_to_meet,
+              CASE
+                WHEN NULLIF(u.fadd1_con_id, 0) IS NOT NULL THEN u.fadd1_con_id
+                ELSE NULLIF(u.fadd2_con_id, 0)
+              END AS country_id,
+              CASE
+                WHEN NULLIF(u.fadd1_con_id, 0) IS NOT NULL THEN c1.code
+                ELSE c2.code
+              END AS country_code,
+              CASE
+                WHEN NULLIF(u.fadd1_con_id, 0) IS NOT NULL THEN c1.name
+                ELSE c2.name
+              END AS country_name,
+              CASE
+                WHEN NULLIF(u.fadd1_con_id, 0) IS NOT NULL THEN NULLIF(u.fadd1_sta_id, 0)
+                ELSE NULLIF(u.fadd2_sta_id, 0)
+              END AS state_id,
+              CASE
+                WHEN NULLIF(u.fadd1_con_id, 0) IS NOT NULL THEN s1.name
+                ELSE s2.name
+              END AS state_name,
+              CASE
+                WHEN NULLIF(u.fadd1_con_id, 0) IS NOT NULL THEN NULLIF(u.fadd1_cit_id, '')
+                ELSE NULLIF(u.fadd2_cit_id, '')
+              END AS city
+         ${DISCOVERY_FROM}
+        WHERE ${where}
+        ORDER BY ${discoveryOrderBy(filters.sort)}
+        LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
+    );
+    return { items, totalItems: Number(countRows[0]?.total ?? 0) };
   },
 
   async saveProfile(userId, write) {

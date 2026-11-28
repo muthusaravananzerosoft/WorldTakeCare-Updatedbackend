@@ -113,6 +113,33 @@ function fakeProfiles(row: ProfileUserRow | null = baseRow()) {
         online: 0,
       },
     ]),
+    findPublicMemberRow: vi.fn(async () =>
+      row ? { ...row, use_id: 875, username: 'muthu_g', online: 1 } : null,
+    ),
+    findDiscoveryPage: vi.fn(async () => ({
+      items: [
+        {
+          use_id: 860,
+          fname: 'Meena',
+          lname: 'S',
+          profile_img: 'https://api.test/uploads/member-photos/860/pic.png',
+          img: 'https://api.test/uploads/member-covers/860/cover.png',
+          sex: 2,
+          dob: 631152000,
+          marital_status: 1,
+          languages: 'English, Tamil',
+          other: '2,3',
+          looking_to_meet: 'Woman',
+          country_id: 231,
+          country_code: 'US',
+          country_name: 'United States',
+          state_id: 4162,
+          state_name: 'Oregon',
+          city: 'Portland',
+        },
+      ],
+      totalItems: 21,
+    })),
   };
   return { profiles, writes };
 }
@@ -428,5 +455,105 @@ describe('profile service', () => {
       profileImage: null,
       online: false,
     });
+  });
+
+  it('lists discovery cards and preserves filters and page metadata', async () => {
+    const { profiles } = fakeProfiles();
+    const svc = createProfileService({
+      profiles,
+      reference: fakeReference(),
+      storage: fakeStorage().storage,
+    });
+    const filters = {
+      q: 'Meena',
+      gender: 'female' as const,
+      countryCode: 'US',
+      language: 'English',
+      lookingToMeet: 'woman' as const,
+      sort: 'recommended' as const,
+    };
+
+    const result = await svc.discoverMembers(filters, 2, 10);
+
+    expect(profiles.findDiscoveryPage).toHaveBeenCalledWith(filters, 2, 10);
+    expect(result).toMatchObject({
+      page: 2,
+      limit: 10,
+      total: 21,
+      totalPages: 3,
+      members: [
+        {
+          id: 860,
+          firstName: 'Meena',
+          lastName: 'S',
+          gender: 'female',
+          age: expect.any(Number),
+          location: {
+            country: { id: 231, code: 'US', name: 'United States' },
+            state: { id: 4162, name: 'Oregon' },
+            city: 'Portland',
+          },
+          languages: 'English, Tamil',
+          profileImage: 'https://api.test/uploads/member-photos/860/pic.png',
+          coverImage: 'https://api.test/uploads/member-covers/860/cover.png',
+          lookingToMeet: 'woman',
+          maritalStatus: 'available',
+          traits: ['vegetarian', 'tourist_guide'],
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain('dob');
+  });
+
+  it('returns the public member profile without dob, zip or timezone', async () => {
+    const { profiles } = fakeProfiles();
+    const svc = createProfileService({
+      profiles,
+      reference: fakeReference(),
+      storage: fakeStorage().storage,
+    });
+
+    const { member } = await svc.getPublicMember(875);
+
+    expect(profiles.findPublicMemberRow).toHaveBeenCalledWith(875);
+    expect(member).toMatchObject({
+      id: 875,
+      username: 'muthu_g',
+      online: true,
+      firstName: 'Muthu',
+      lastName: 'G',
+      sex: 'male',
+      age: expect.any(Number),
+      maritalStatus: 'available',
+      countryOfBirth: { id: 14, code: 'AM', name: 'Armenia' },
+      location: {
+        primary: {
+          country: { id: 231, code: 'US', name: 'United States' },
+          state: { id: 4162, name: 'Oregon' },
+          city: 'Beaverton',
+        },
+        secondary: {
+          country: { id: 37, code: 'CA', name: 'Canada' },
+          state: { id: 436, name: 'Ontario' },
+          city: 'Toronto',
+        },
+      },
+    });
+    // private fields are omitted entirely
+    expect('dob' in member).toBe(false);
+    const serialized = JSON.stringify(member);
+    expect(serialized).not.toContain('97005');
+    expect(serialized).not.toContain('PST');
+  });
+
+  it('returns 404 when the member is missing or not publicly visible', async () => {
+    const { profiles } = fakeProfiles(null);
+    const svc = createProfileService({
+      profiles,
+      reference: fakeReference(),
+      storage: fakeStorage().storage,
+    });
+
+    await expect(svc.getPublicMember(999)).rejects.toMatchObject({ statusCode: 404 });
   });
 });

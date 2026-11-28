@@ -7,6 +7,7 @@ import { createRateLimiter } from '../middleware/rate-limit.middleware.js';
 import { createUpload } from '../middleware/upload.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
+  memberIdParamSchema,
   newestMembersQuerySchema,
   updateProfileSchema,
 } from '../validators/profile.validation.js';
@@ -50,6 +51,14 @@ userRouter.get(
   '/newest',
   validate({ query: newestMembersQuerySchema }),
   asyncHandler(profileController.newest),
+);
+
+// Public — single member profile page (dob/zip/timezone hidden; 404 unless
+// the user is an active, visible member).
+userRouter.get(
+  '/:id',
+  validate({ params: memberIdParamSchema }),
+  asyncHandler(profileController.publicMember),
 );
 
 userRouter.use(requireAuth);

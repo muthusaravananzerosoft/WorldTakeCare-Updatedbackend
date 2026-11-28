@@ -106,3 +106,8 @@ export const updateProfileSchema = z.object({
 export const newestMembersQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(15),
 });
+
+/** GET /users/:id — public member detail path param. */
+export const memberIdParamSchema = z.object({
+  id: z.coerce.number().int().positive('User id must be a positive integer'),
+});

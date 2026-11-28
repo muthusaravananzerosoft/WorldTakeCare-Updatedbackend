@@ -464,6 +464,106 @@ export const openApiDocument = {
         },
       },
     },
+    '/users/{id}': {
+      get: {
+        tags: ['users'],
+        summary:
+          'Public member profile — full profile minus private fields (age instead of dob; zip/timezone omitted). 404 unless the user is an active, visible member.',
+        operationId: 'getPublicMember',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer', minimum: 1 },
+          },
+        ],
+        responses: {
+          '200': {
+            description:
+              'member: id, username, online, profileImage, coverImage, first/last name, sex, age, maritalStatus, race/religion/height/education, languages, traits, nationalities, lookingToMeet, writeSomething/about, primary/secondary location (country/state/city), visitedCountries, visitingCountries',
+          },
+          '404': { description: 'Member not found or not publicly visible' },
+        },
+      },
+    },
+    '/discovery/members': {
+      get: {
+        tags: ['discovery'],
+        summary:
+          'Search active, visible Member profiles only. Recommended profile completeness order is the default.',
+        operationId: 'discoverMembers',
+        parameters: [
+          { name: 'q', in: 'query', schema: { type: 'string', minLength: 1, maxLength: 80 } },
+          { name: 'ageMin', in: 'query', schema: { type: 'integer', minimum: 18, maximum: 99 } },
+          { name: 'ageMax', in: 'query', schema: { type: 'integer', minimum: 18, maximum: 99 } },
+          { name: 'gender', in: 'query', schema: { type: 'string', enum: ['male', 'female'] } },
+          {
+            name: 'countryCode',
+            in: 'query',
+            schema: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+          },
+          { name: 'stateId', in: 'query', schema: { type: 'integer', minimum: 1 } },
+          { name: 'city', in: 'query', schema: { type: 'string', maxLength: 120 } },
+          { name: 'language', in: 'query', schema: { type: 'string', maxLength: 60 } },
+          {
+            name: 'lookingToMeet',
+            in: 'query',
+            schema: { type: 'string', enum: ['man', 'woman', 'man_or_woman', 'other'] },
+          },
+          {
+            name: 'maritalStatus',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: [
+                'available',
+                'seeing_someone',
+                'complicated',
+                'single',
+                'married',
+                'separated',
+                'divorced',
+                'widowed',
+              ],
+            },
+          },
+          { name: 'raceId', in: 'query', schema: { type: 'integer', minimum: 1 } },
+          { name: 'religionId', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 7 } },
+          {
+            name: 'trait',
+            in: 'query',
+            schema: { type: 'string', enum: ['non_smoker', 'vegetarian', 'tourist_guide'] },
+          },
+          {
+            name: 'sort',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: ['recommended', 'newest', 'age_asc', 'age_desc'],
+              default: 'recommended',
+            },
+          },
+          {
+            name: 'page',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, maximum: 1000000, default: 1 },
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, maximum: 50, default: 15 },
+          },
+        ],
+        responses: {
+          '200': {
+            description:
+              'Page of public member cards with page, limit, total and totalPages. Results omit email, date of birth and private account fields.',
+          },
+          '400': { description: 'Invalid search, filter, sort or pagination parameter' },
+        },
+      },
+    },
     '/reference/options': {
       get: {
         tags: ['reference-data'],

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authRouter } from './auth.routes.js';
 import { connectionRouter } from './connection.routes.js';
+import { discoveryRouter } from './discovery.routes.js';
 import { guideProfileRouter } from './guide-profile.routes.js';
 import { guideRouter } from './guide.routes.js';
 import { healthRouter } from './health.routes.js';
@@ -18,6 +19,7 @@ apiRouter.use('/auth', authRouter);
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/posts', postRouter);
 apiRouter.use('/connections', connectionRouter);
+apiRouter.use('/discovery', discoveryRouter);
 // Public routes mount first — guideProfileRouter applies auth at router level
 // and would 401 public paths. /me/* still reaches it (/:id can't match 2+ segments).
 apiRouter.use('/guides', guideRouter);

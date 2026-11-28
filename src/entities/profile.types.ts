@@ -22,6 +22,65 @@ export type ProfileTrait = 'non_smoker' | 'vegetarian' | 'tourist_guide';
 
 export type LookingToMeet = 'man' | 'woman' | 'man_or_woman' | 'other';
 
+export const MEMBER_DISCOVERY_SORTS = ['recommended', 'newest', 'age_asc', 'age_desc'] as const;
+export type MemberDiscoverySort = (typeof MEMBER_DISCOVERY_SORTS)[number];
+
+export interface MemberDiscoveryFilters {
+  q?: string | undefined;
+  ageMin?: number | undefined;
+  ageMax?: number | undefined;
+  gender?: SexValue | undefined;
+  countryCode?: string | undefined;
+  stateId?: number | undefined;
+  city?: string | undefined;
+  language?: string | undefined;
+  lookingToMeet?: LookingToMeet | undefined;
+  maritalStatus?: Exclude<MaritalStatus, 'offline'> | undefined;
+  raceId?: number | undefined;
+  religionId?: number | undefined;
+  trait?: ProfileTrait | undefined;
+  sort: MemberDiscoverySort;
+}
+
+export interface MemberDiscoveryRow {
+  use_id: number;
+  fname: string;
+  lname: string;
+  profile_img: string | null;
+  img: string | null;
+  sex: number;
+  dob: number | null;
+  marital_status: number;
+  languages: string | null;
+  other: string | null;
+  looking_to_meet: string | null;
+  country_id: number | null;
+  country_code: string | null;
+  country_name: string | null;
+  state_id: number | null;
+  state_name: string | null;
+  city: string | null;
+}
+
+export interface MemberDiscoveryCard {
+  id: number;
+  firstName: string;
+  lastName: string;
+  gender: SexValue | null;
+  age: number | null;
+  location: {
+    country: CountryRef | null;
+    state: StateRef | null;
+    city: string | null;
+  };
+  languages: string | null;
+  profileImage: string | null;
+  coverImage: string | null;
+  lookingToMeet: LookingToMeet | null;
+  maritalStatus: MaritalStatus | null;
+  traits: ProfileTrait[];
+}
+
 export interface NamedOption {
   id: number;
   name: string;
@@ -140,6 +199,33 @@ export interface MemberProfile {
   location: {
     primary: LocationProfile;
     secondary: LocationProfile;
+  };
+  visitedCountries: VisitedCountry[];
+  visitingCountries: CountryRef[];
+}
+
+/** Location subset shown on the public member page — zip/timezone stay private. */
+export interface PublicMemberLocation {
+  country: CountryRef | null;
+  state: StateRef | null;
+  city: string | null;
+}
+
+/**
+ * Public member detail (GET /users/:id) — the member profile minus private
+ * fields: `age` is exposed instead of `dob`; zip and timezone are omitted.
+ * 404 for inactive, deleted, suspended, hidden or non-member rows.
+ */
+export interface PublicMemberProfile extends Omit<PersonalProfile, 'dob'> {
+  id: number;
+  username: string | null;
+  /** True when the member has a row in online_users (legacy online dot). */
+  online: boolean;
+  profileImage: string | null;
+  coverImage: string | null;
+  location: {
+    primary: PublicMemberLocation;
+    secondary: PublicMemberLocation;
   };
   visitedCountries: VisitedCountry[];
   visitingCountries: CountryRef[];

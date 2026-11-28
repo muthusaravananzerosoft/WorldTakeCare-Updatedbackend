@@ -15,10 +15,14 @@ import type {
   CountryRef,
   LocationInput,
   LocationProfile,
+  MemberDiscoveryCard,
+  MemberDiscoveryFilters,
   MemberListItem,
   MemberProfile,
   PersonalInput,
   ProfileTrait,
+  PublicMemberLocation,
+  PublicMemberProfile,
   SexValue,
   UpdateProfileInput,
   VisitedCountry,
@@ -27,7 +31,10 @@ import { validateImageUpload } from '../integrations/storage/image-validation.js
 import { keyFromStoredUrl } from '../integrations/storage/local-disk-storage.js';
 import { localDiskStorage } from '../integrations/storage/local-disk-storage.js';
 import type { MediaStorage } from '../integrations/storage/media-storage.interface.js';
-import type { ProfileRepository } from '../repositories/profile.repository.js';
+import type {
+  ProfileRepository,
+  ProfileUserRow,
+} from '../repositories/profile.repository.js';
 import { profileRepository } from '../repositories/profile.repository.js';
 import type { ReferenceRepository } from '../repositories/reference.repository.js';
 import { referenceRepository } from '../repositories/reference.repository.js';
@@ -118,7 +125,10 @@ export function createProfileService(deps: ProfileServiceDeps) {
   async function assembleProfile(userId: number): Promise<MemberProfile> {
     const row = await profiles.findProfileRow(userId);
     if (!row) throw AppError.notFound('User not found');
+    return buildProfile(row, userId);
+  }
 
+  async function buildProfile(row: ProfileUserRow, userId: number): Promise<MemberProfile> {
     const nationalityIds = (row.fdob_nationality_id ?? '')
       .split(',')
       .map((s) => Number(s.trim()))
@@ -496,6 +506,41 @@ export function createProfileService(deps: ProfileServiceDeps) {
       return { message: 'Profile updated', profile: await assembleProfile(userId) };
     },
 
+    /**
+     * Public member detail — the full profile minus private fields (dob →
+     * age only, zip and timezone omitted). 404 when the row is missing or
+     * not a publicly visible member.
+     */
+    async getPublicMember(userId: number): Promise<{ member: PublicMemberProfile }> {
+      const row = await profiles.findPublicMemberRow(userId);
+      if (!row) throw AppError.notFound('Member not found');
+      const profile = await buildProfile(row, userId);
+      const publicLocation = (loc: LocationProfile): PublicMemberLocation => ({
+        country: loc.country,
+        state: loc.state,
+        city: loc.city,
+      });
+      // dob stays private — only age is exposed on the public view.
+      const { dob, ...publicPersonal } = profile.personal;
+      void dob;
+      return {
+        member: {
+          id: Number(row.use_id),
+          username: row.username || null,
+          online: Boolean(row.online),
+          profileImage: profile.profileImage,
+          coverImage: profile.coverImage,
+          ...publicPersonal,
+          location: {
+            primary: publicLocation(profile.location.primary),
+            secondary: publicLocation(profile.location.secondary),
+          },
+          visitedCountries: profile.visitedCountries,
+          visitingCountries: profile.visitingCountries,
+        },
+      };
+    },
+
     /** Public homepage list — newest active members (guides/admins excluded). */
     async newestMembers(limit: number) {
       const rows = await profiles.findNewestMembers(limit);
@@ -513,6 +558,43 @@ export function createProfileService(deps: ProfileServiceDeps) {
         online: Boolean(r.online),
       }));
       return { members };
+    },
+
+    /** Public discovery list — active, visible member profiles only. */
+    async discoverMembers(filters: MemberDiscoveryFilters, page: number, limit: number) {
+      const result = await profiles.findDiscoveryPage(filters, page, limit);
+      const members: MemberDiscoveryCard[] = result.items.map((row) => ({
+        id: Number(row.use_id),
+        firstName: row.fname,
+        lastName: row.lname,
+        gender: sexValue(row.sex) as SexValue | null,
+        age: calcAge(row.dob),
+        location: {
+          country: row.country_id
+            ? {
+                id: Number(row.country_id),
+                code: row.country_code,
+                name: row.country_name ?? '',
+              }
+            : null,
+          state: row.state_id ? { id: Number(row.state_id), name: row.state_name ?? '' } : null,
+          city: row.city || null,
+        },
+        languages: row.languages || null,
+        profileImage: row.profile_img || null,
+        coverImage: row.img || null,
+        lookingToMeet: mapLookingToMeet(row.looking_to_meet).lookingToMeet,
+        maritalStatus: maritalStatusValue(row.marital_status) as MemberDiscoveryCard['maritalStatus'],
+        traits: mapTraits(row.other),
+      }));
+
+      return {
+        members,
+        page,
+        limit,
+        total: result.totalItems,
+        totalPages: Math.ceil(result.totalItems / limit),
+      };
     },
   };
 }

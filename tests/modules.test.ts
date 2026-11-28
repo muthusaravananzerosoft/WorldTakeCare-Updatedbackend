@@ -27,9 +27,12 @@ describe('feature registry', () => {
   );
 
   it.each(
-    MODULES.filter((m) => m.status === 'implemented').map((m) => [m.name, m.basePath] as const),
-  )('implemented module "%s" is mounted under /api/v1', async (_name, basePath) => {
-    const res = await request(app).get(`/api/v1${basePath}`);
+    MODULES.filter((m) => m.status === 'implemented').map((m) => [
+      m.name,
+      m.name === 'discovery' ? '/discovery/members?limit=51' : m.basePath,
+    ] as const),
+  )('implemented module "%s" is mounted under /api/v1', async (_name, route) => {
+    const res = await request(app).get(`/api/v1${route}`);
     expect(res.status).not.toBe(404);
   });
 
