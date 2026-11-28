@@ -317,7 +317,7 @@ export const MODULES = [
     basePath: '/reference',
     status: 'implemented',
     summary:
-      'Read-only lookups for profile/registration forms: countries, states by country, race, height, education, religion, marital status, sex, lifestyle traits and looking-to-meet options.',
+      'Read-only lookups for profile/registration forms: countries, states by country, race, height, education, religion, marital status, sex, lifestyle trait presets (custom labels also accepted) and looking-to-meet options.',
     legacyFiles: [
       'get_states.php',
       'get_cities.php',

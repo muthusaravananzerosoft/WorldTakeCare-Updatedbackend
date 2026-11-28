@@ -2,9 +2,11 @@ import { z } from 'zod';
 import {
   MARITAL_STATUS_OPTIONS,
   MAX_NATIONALITIES,
+  MAX_TRAIT_CSV_LENGTH,
+  MAX_TRAIT_LENGTH,
+  MAX_TRAITS,
   MAX_VISITING_COUNTRIES,
   RELIGION_OTHER_ID,
-  TRAIT_OPTIONS,
 } from '../common/constants/profile.constants.js';
 
 const nameSchema = z
@@ -43,7 +45,19 @@ const locationSchema = z.object({
 });
 
 const maritalValues = MARITAL_STATUS_OPTIONS.map((o) => o.value) as [string, ...string[]];
-const traitValues = TRAIT_OPTIONS.map((o) => o.value) as [string, ...string[]];
+
+/**
+ * One trait label — preset value (non_smoker…) or any custom text.
+ * `user.other` is a CSV column, so commas would corrupt the encoding and
+ * a numeric-only label would be misread as a legacy preset id.
+ */
+const traitSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_TRAIT_LENGTH)
+  .refine((t) => !t.includes(','), { message: 'Trait must not contain commas' })
+  .refine((t) => !/^\d+$/.test(t), { message: 'Trait must not be a number' });
 
 const personalSchema = z
   .object({
@@ -59,7 +73,14 @@ const personalSchema = z
     maritalStatus: z.enum(maritalValues).optional(),
     educationId: z.number().int().positive().nullish(),
     languages: z.string().trim().max(500).nullish(),
-    traits: z.array(z.enum(traitValues)).max(TRAIT_OPTIONS.length).optional(),
+    traits: z
+      .array(traitSchema)
+      .max(MAX_TRAITS, `Select at most ${MAX_TRAITS} traits`)
+      // `user.other` is varchar(222) — the whole CSV must fit.
+      .refine((list) => list.join(',').length <= MAX_TRAIT_CSV_LENGTH, {
+        message: 'Traits are too long combined',
+      })
+      .optional(),
     nationalities: z.array(countryCodeSchema).max(MAX_NATIONALITIES).optional(),
     lookingToMeet: z.enum(['man', 'woman', 'man_or_woman', 'other']).nullish(),
     lookingToMeetOther: z.string().trim().max(50).nullish(),

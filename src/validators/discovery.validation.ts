@@ -31,7 +31,15 @@ export const memberDiscoveryQuerySchema = z
       .optional(),
     raceId: z.coerce.number().int().positive().optional(),
     religionId: z.coerce.number().int().min(1).max(7).optional(),
-    trait: z.enum(['non_smoker', 'vegetarian', 'tourist_guide']).optional(),
+    // Preset value (non_smoker…) or any custom trait label — matched as a
+    // whole CSV token in user.other.
+    trait: z
+      .string()
+      .trim()
+      .min(1)
+      .max(60)
+      .refine((t) => !t.includes(','), { message: 'Trait must not contain commas' })
+      .optional(),
     sort: z.enum(MEMBER_DISCOVERY_SORTS).default('recommended'),
     page: z.coerce.number().int().min(1).max(1_000_000).default(1),
     limit: z.coerce.number().int().min(1).max(50).default(15),

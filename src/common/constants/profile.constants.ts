@@ -36,12 +36,22 @@ export const RELIGION_OPTIONS = [
 
 export const RELIGION_OTHER_ID = 7;
 
-/** Lifestyle checkboxes — stored as a CSV of ids in `user.other`. */
+/**
+ * Lifestyle presets — stored as a CSV of ids in `user.other`. These are the
+ * canonical presets only; the column also carries free-text custom traits
+ * (any non-numeric token) so members aren't limited to this list.
+ */
 export const TRAIT_OPTIONS = [
   { id: 1, value: 'non_smoker', label: 'Non-Smoker' },
   { id: 2, value: 'vegetarian', label: 'Vegetarian' },
   { id: 3, value: 'tourist_guide', label: 'Tourist Guide' },
 ] as const;
+
+/** `user.other` is varchar(222) — the joined CSV must fit with headroom. */
+export const MAX_TRAIT_CSV_LENGTH = 220;
+export const MAX_TRAITS = 10;
+/** Length of one custom trait label. */
+export const MAX_TRAIT_LENGTH = 60;
 
 /** `stored` is the literal written to `user.looking_to_meet` (legacy strings). */
 export const LOOKING_TO_MEET_OPTIONS = [

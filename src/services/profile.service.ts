@@ -3,12 +3,12 @@ import { AppError } from '../common/errors/app-error.js';
 import {
   LOOKING_TO_MEET_OPTIONS,
   RELIGION_OTHER_ID,
+  TRAIT_OPTIONS,
   maritalStatusId,
   maritalStatusValue,
   religionOption,
   sexId,
   sexValue,
-  traitId,
   traitValue,
 } from '../common/constants/profile.constants.js';
 import type {
@@ -20,7 +20,6 @@ import type {
   MemberListItem,
   MemberProfile,
   PersonalInput,
-  ProfileTrait,
   PublicMemberLocation,
   PublicMemberProfile,
   SexValue,
@@ -107,12 +106,50 @@ function blobToText(value: string | Buffer | null): string | null {
   return typeof value === 'string' ? value : value.toString('utf8');
 }
 
-function mapTraits(csv: string | null): ProfileTrait[] {
+/**
+ * `user.other` CSV → trait labels. Numeric tokens resolve to the canonical
+ * preset value (legacy format), anything else is a custom trait returned
+ * literally; unknown numerics are skipped.
+ */
+function mapTraits(csv: string | null): string[] {
   if (!csv) return [];
-  return csv
-    .split(',')
-    .map((part) => traitValue(Number(part)))
-    .filter((v): v is ProfileTrait => v !== null);
+  const traits: string[] = [];
+  for (const part of csv.split(',')) {
+    const token = part.trim();
+    if (!token) continue;
+    if (/^\d+$/.test(token)) {
+      const preset = traitValue(Number(token));
+      if (preset) traits.push(preset);
+    } else {
+      traits.push(token);
+    }
+  }
+  return traits;
+}
+
+/**
+ * Trait labels → `user.other` CSV tokens. Canonical presets keep their
+ * legacy numeric id (matched by value or label, case-insensitive) so old
+ * rows and any legacy readers stay valid; custom traits store literally.
+ * Dedupes by stored token.
+ */
+function traitTokens(traits: string[]): string[] {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+  for (const raw of traits) {
+    const label = raw.trim();
+    if (!label) continue;
+    const preset = TRAIT_OPTIONS.find(
+      (o) => o.value === label.toLowerCase() || o.label.toLowerCase() === label.toLowerCase(),
+    );
+    const token = preset ? String(preset.id) : label;
+    const key = token.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      tokens.push(token);
+    }
+  }
+  return tokens;
 }
 
 // ---- input → DB mapping -----------------------------------------------------
@@ -291,11 +328,8 @@ export function createProfileService(deps: ProfileServiceDeps) {
     }
     if (p.languages !== undefined) columns.languages = p.languages;
     if (p.traits !== undefined) {
-      const ids = p.traits
-        .map((t) => traitId(t))
-        .filter((n): n is number => n !== undefined)
-        .sort((a, b) => a - b);
-      columns['`other`'] = ids.length > 0 ? ids.join(',') : null;
+      const tokens = traitTokens(p.traits);
+      columns['`other`'] = tokens.length > 0 ? tokens.join(',') : null;
     }
     if (p.nationalities !== undefined) {
       const ids = p.nationalities

@@ -290,10 +290,13 @@ function discoveryWhere(filters: MemberDiscoveryFilters) {
     params.push(filters.religionId);
   }
   if (filters.trait) {
-    const profileTraitId = traitId(filters.trait);
-    if (profileTraitId !== undefined) {
+    // Preset value → its stored numeric id; custom trait → the literal CSV
+    // token. FIND_IN_SET matches whole CSV elements so both work.
+    const presetId = traitId(filters.trait);
+    const token = presetId !== undefined ? String(presetId) : filters.trait;
+    if (!token.includes(',')) {
       where.push('FIND_IN_SET(?, u.`other`) > 0');
-      params.push(profileTraitId);
+      params.push(token);
     }
   }
 

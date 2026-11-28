@@ -53,12 +53,25 @@ describe('member discovery repository', () => {
     expect(countSql).toContain('u.reli_id = ?');
     expect(countSql).toContain('FIND_IN_SET(?, u.`other`)');
     expect(countParams).toEqual(
-      expect.arrayContaining(['%Muthu%', 'US', 4162, '%Portland%', 'English', 'woman', 4, 2, 3, 2]),
+      expect.arrayContaining(['%Muthu%', 'US', 4162, '%Portland%', 'English', 'woman', 4, 2, 3, '2']),
     );
     expect(pageSql).toContain('ORDER BY (');
     expect(pageSql).toContain('u.use_id DESC');
     expect(pageSql).toContain('LIMIT ? OFFSET ?');
     expect(pageParams?.slice(-2)).toEqual([10, 10]);
+  });
+
+  it('matches a custom trait as a literal CSV token', async () => {
+    const query = vi
+      .spyOn(databaseClient, 'query')
+      .mockResolvedValueOnce([{ total: 0 }] as never)
+      .mockResolvedValueOnce([] as never);
+
+    await profileRepository.findDiscoveryPage({ trait: 'Rock Climbing', sort: 'newest' }, 1, 15);
+
+    const [sql, params] = query.mock.calls[0]!;
+    expect(sql).toContain('FIND_IN_SET(?, u.`other`)');
+    expect(params).toContain('Rock Climbing');
   });
 
   it('keeps each sort deterministic with the member id as its final tie-breaker', async () => {

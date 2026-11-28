@@ -533,7 +533,9 @@ export const openApiDocument = {
           {
             name: 'trait',
             in: 'query',
-            schema: { type: 'string', enum: ['non_smoker', 'vegetarian', 'tourist_guide'] },
+            description:
+              'Preset value (non_smoker, vegetarian, tourist_guide) or a custom trait label',
+            schema: { type: 'string', maxLength: 60 },
           },
           {
             name: 'sort',
@@ -568,7 +570,7 @@ export const openApiDocument = {
       get: {
         tags: ['reference-data'],
         summary:
-          'Dropdown options for profile/registration forms: countries, races, heights, educations, religions, marital statuses, sex, traits, looking-to-meet.',
+          'Dropdown options for profile/registration forms: countries, races, heights, educations, religions, marital statuses, sex, trait presets (custom labels also accepted), looking-to-meet.',
         operationId: 'referenceOptions',
         responses: {
           '200': { description: 'All option lists' },
@@ -1210,7 +1212,13 @@ export const openApiDocument = {
           },
           educationId: { type: 'integer', nullable: true },
           languages: { type: 'string', maxLength: 500, nullable: true },
-          traits: { type: 'array', items: { type: 'string', enum: ['non_smoker', 'vegetarian', 'tourist_guide'] } },
+          traits: {
+            type: 'array',
+            maxItems: 10,
+            items: { type: 'string', minLength: 1, maxLength: 60 },
+            description:
+              'Preset values (non_smoker, vegetarian, tourist_guide) and/or custom trait labels — no commas, not numeric-only',
+          },
           nationalities: { type: 'array', maxItems: 5, items: { type: 'string', minLength: 2, maxLength: 2 } },
           lookingToMeet: { type: 'string', enum: ['man', 'woman', 'man_or_woman', 'other'], nullable: true },
           lookingToMeetOther: { type: 'string', maxLength: 50, nullable: true, description: "Required when lookingToMeet = 'other'" },

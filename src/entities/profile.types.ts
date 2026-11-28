@@ -38,7 +38,8 @@ export interface MemberDiscoveryFilters {
   maritalStatus?: Exclude<MaritalStatus, 'offline'> | undefined;
   raceId?: number | undefined;
   religionId?: number | undefined;
-  trait?: ProfileTrait | undefined;
+  /** Preset value (non_smoker…) or a custom trait label. */
+  trait?: string | undefined;
   sort: MemberDiscoverySort;
 }
 
@@ -78,7 +79,7 @@ export interface MemberDiscoveryCard {
   coverImage: string | null;
   lookingToMeet: LookingToMeet | null;
   maritalStatus: MaritalStatus | null;
-  traits: ProfileTrait[];
+  traits: string[];
 }
 
 export interface NamedOption {
@@ -123,7 +124,8 @@ export interface PersonalInput {
   maritalStatus?: MaritalStatus;
   educationId?: number | null;
   languages?: string | null;
-  traits?: ProfileTrait[];
+  /** Preset values and/or custom trait labels. */
+  traits?: string[];
   /** ISO country codes, max MAX_NATIONALITIES. */
   nationalities?: string[];
   lookingToMeet?: LookingToMeet | null;
@@ -177,7 +179,7 @@ export interface PersonalProfile {
   maritalStatus: MaritalStatus | null;
   education: NamedOption | null;
   languages: string | null;
-  traits: ProfileTrait[];
+  traits: string[];
   nationalities: CountryRef[];
   lookingToMeet: LookingToMeet | null;
   lookingToMeetOther: string | null;

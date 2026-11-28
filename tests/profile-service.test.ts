@@ -291,6 +291,38 @@ describe('profile service', () => {
     expect(w.visiting).toEqual([102, 37]);
   });
 
+  it('round-trips custom traits mixed with presets, normalized and deduped', async () => {
+    const { profiles, writes } = fakeProfiles(baseRow({ other: '1,3,rock climbing' }));
+    const svc = createProfileService({ profiles, reference: fakeReference(), storage: fakeStorage().storage });
+
+    // read — preset ids resolve to canonical values, custom tokens pass through
+    const { profile } = await svc.getProfile(861);
+    expect(profile.personal.traits).toEqual(['non_smoker', 'tourist_guide', 'rock climbing']);
+
+    // write — presets keep legacy ids (by value or label), custom stores literally
+    await svc.updateProfile(861, {
+      personal: {
+        firstName: 'Muthu',
+        lastName: 'G',
+        traits: ['Non-Smoker', 'Rock Climbing', 'Vegetarian', 'vegetarian', '  Hiking  '],
+      },
+    });
+    expect(writes[0]!.columns['`other`']).toBe('1,Rock Climbing,2,Hiking');
+  });
+
+  it('skips unknown numeric trait tokens on read and clears traits on an empty array', async () => {
+    const { profiles, writes } = fakeProfiles(baseRow({ other: '4,9' }));
+    const svc = createProfileService({ profiles, reference: fakeReference(), storage: fakeStorage().storage });
+
+    const { profile } = await svc.getProfile(861);
+    expect(profile.personal.traits).toEqual([]);
+
+    await svc.updateProfile(861, {
+      personal: { firstName: 'Muthu', lastName: 'G', traits: [] },
+    });
+    expect(writes[0]!.columns['`other`']).toBeNull();
+  });
+
   it('stores free text for lookingToMeet=other and leaves absent sections untouched', async () => {
     const { profiles, writes } = fakeProfiles();
     const svc = createProfileService({ profiles, reference: fakeReference(), storage: fakeStorage().storage });
